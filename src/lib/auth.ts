@@ -1,6 +1,8 @@
 import { currentUser as clerkCurrentUser, auth as clerkAuth } from '@clerk/nextjs/server';
 import { isDemoMode } from './auth-constants';
 
+export { isDemoMode };
+
 /**
  * A helper to provide either real Clerk auth or mock auth for Demo Mode.
  * This prevents the app from crashing when API keys are missing.
