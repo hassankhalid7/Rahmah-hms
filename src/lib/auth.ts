@@ -1,7 +1,5 @@
 import { currentUser as clerkCurrentUser, auth as clerkAuth } from '@clerk/nextjs/server';
-
-const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-export const isDemoMode = !publishableKey || publishableKey === 'your_publishable_key_here' || !publishableKey.startsWith('pk_');
+import { isDemoMode } from './auth-constants';
 
 /**
  * A helper to provide either real Clerk auth or mock auth for Demo Mode.

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClerk } from '@clerk/nextjs';
-import { isDemoMode } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 
 function ClerkSignOutTrigger() {
     const { signOut } = useClerk();
