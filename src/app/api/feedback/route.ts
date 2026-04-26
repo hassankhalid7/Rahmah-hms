@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth, isDemoMode } from '@/lib/auth';
+import { getAuth } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 
 export async function POST(req: NextRequest) {
     try {

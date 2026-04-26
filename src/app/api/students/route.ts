@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { students, users, classEnrollments, classes } from '@/db/schema';
 import { eq, and, desc, ilike, or } from 'drizzle-orm';
-import { getAuth, isDemoMode } from '@/lib/auth';
+import { getAuth } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 import { studentSchema } from '@/lib/validations/student';
 
 export async function GET(req: NextRequest) {

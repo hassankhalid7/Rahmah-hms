@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { isDemoMode } from './lib/auth';
+import { isDemoMode } from './lib/auth-constants';
 
 const isPublicRoute = createRouteMatcher([
     '/',

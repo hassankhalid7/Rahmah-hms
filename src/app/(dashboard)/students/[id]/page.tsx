@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { db } from '@/db';
 import { students, users, classEnrollments, classes } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getAuth, isDemoMode } from '@/lib/auth';
+import { getAuth } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 import { notFound } from 'next/navigation';
 
 export default async function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {

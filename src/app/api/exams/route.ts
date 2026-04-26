@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
-import { isDemoMode } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 
 // GET /api/exams - List exams
 export async function GET(request: NextRequest) {

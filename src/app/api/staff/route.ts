@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, teachers, organizations } from '@/db/schema';
 import { eq, and, or, ilike, desc } from 'drizzle-orm';
-import { getAuth, isDemoMode } from '@/lib/auth';
+import { getAuth } from '@/lib/auth';
+import { isDemoMode } from '@/lib/auth-constants';
 import { staffSchema } from '@/lib/validations/staff';
 
 export async function POST(req: NextRequest) {
