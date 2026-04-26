@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 
 const translations = {
@@ -108,7 +108,7 @@ const translations = {
 type Lang = keyof typeof translations;
 type TranslationKey = keyof (typeof translations)['en'];
 
-export default function AdminDetailsPage() {
+function AdminDetailsForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const emailFromPrevious = searchParams.get('email') ?? '';
@@ -497,6 +497,18 @@ export default function AdminDetailsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminDetailsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F7F1E6] flex items-center justify-center">
+        <div className="text-[#1c3c33] font-bold animate-pulse">Loading Registration...</div>
+      </div>
+    }>
+      <AdminDetailsForm />
+    </Suspense>
   );
 }
 
