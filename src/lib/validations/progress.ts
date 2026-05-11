@@ -15,6 +15,7 @@ const baseProgressSchema = z.object({
     studentId: z.string().uuid('Invalid student ID'),
     date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
     attendanceStatus: attendanceStatusSchema,
+    teacherId: z.string().uuid('Invalid teacher ID').optional(),
     teacherRemarks: z.string().max(1000).optional(),
 });
 

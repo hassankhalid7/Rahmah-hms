@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { Organization } from '@/db/schema/organizations';
 
 const MOCK_DB_PATH = path.join(process.cwd(), 'mock-db.json');
 
@@ -44,7 +45,7 @@ export async function addMockOrganization(org: Omit<Organization, 'id' | 'create
     const newOrg: Organization = {
         ...org,
         id: Math.random().toString(36).substring(2, 11),
-        createdAt: new Date().toISOString()
+        createdAt: new Date()
     };
     db.organizations = db.organizations || [];
     db.organizations.push(newOrg);
