@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F7F1E6;
+  --foreground: #1c3c33;
+}
+
+/* Tailwind CSS v4 Theme Configuration */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Custom Color Palette */
+  --color-brand-50: #E5F4EC;
+  --color-brand-100: #C2E0D1;
+  --color-brand-200: #9ECDB6;
+  --color-brand-300: #7AB99B;
+  --color-brand-400: #57A680;
+  --color-brand-500: #2F6B4F;
+  /* Forest Green */
+  --color-brand-600: #26563F;
+  --color-brand-700: #1C402F;
+  --color-brand-800: #132B20;
+  --color-brand-900: #0A1510;
+
+  /* Accent colors (Gold) */
+  --color-accent-50: #FEF9E6;
+  --color-accent-100: #FDF3CD;
+  --color-accent-200: #FBECB4;
+  --color-accent-300: #FAE69B;
+  --color-accent-400: #F8DF82;
+  --color-accent-500: #F3D083;
+  /* Gold */
+  --color-accent-600: #C2A669;
+  --color-accent-700: #927D4F;
+  --color-accent-800: #615334;
+  --color-accent-900: #312A1A;
+
+  /* Neutral/Gray Palette (Tinted for Warmth) */
+  --color-gray-50: #F9F6F0;
+  --color-gray-100: #EAE4D9;
+  --color-gray-200: #D6CEC0;
+  --color-gray-300: #BDB4A3;
+  --color-gray-400: #A39B88;
+  --color-gray-500: #8A816D;
+  --color-gray-600: #706854;
+  --color-gray-700: #57503D;
+  --color-gray-800: #3D3728;
+  --color-gray-900: #1c3c33;
+  /* Matches Foreground */
+  --color-gray-950: #0D1F1A;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #F7F1E6;
+    /* Force light/cream mode for now as per design */
+    --foreground: #1c3c33;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}

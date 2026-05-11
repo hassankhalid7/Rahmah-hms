@@ -1,0 +1,46 @@
+{
+  "organizations": [
+    {
+      "name": "a",
+      "address": "islambabd",
+      "phone": "+923171315429",
+      "email": "ahsanmumtaz.2024@gmail.com",
+      "slug": "a",
+      "logoUrl": null,
+      "id": "ifc2yiipb",
+      "createdAt": "2026-05-10T12:06:47.975Z"
+    }
+  ],
+  "joinRequests": [
+    {
+      "organizationId": "ifc2yiipb",
+      "studentName": "Ahsan Mumtaz",
+      "studentPhone": "+923171315429",
+      "studentEmail": "2212377@szabist-isb.pk",
+      "message": null,
+      "id": "bhin1ggfz",
+      "status": "approved",
+      "createdAt": "2026-05-10T12:11:19.768Z"
+    }
+  ],
+  "students": [
+    {
+      "organizationId": "ifc2yiipb",
+      "name": "Ahsan Mumtaz",
+      "phone": "+923171315429",
+      "email": "2212377@szabist-isb.pk",
+      "id": "d9xqouk1v",
+      "status": "active",
+      "admissionDate": "2026-05-10"
+    },
+    {
+      "organizationId": "ifc2yiipb",
+      "name": "Ahsan Mumtaz",
+      "phone": "+923171315429",
+      "email": "2212377@szabist-isb.pk",
+      "id": "0wagjvzo6",
+      "status": "active",
+      "admissionDate": "2026-05-10"
+    }
+  ]
+}
