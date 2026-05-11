@@ -19,7 +19,19 @@ export async function POST(req: NextRequest) {
 
         // Find user by email and role
         const users_list = await db
-            .select()
+            .select({
+                id: users.id,
+                password: users.password,
+                organizationId: users.organizationId,
+                role: users.role,
+                status: users.status,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+                phone: users.phone,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            })
             .from(users)
             .where(
                 and(
