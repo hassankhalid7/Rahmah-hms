@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 type Role = 'admin' | 'teacher' | 'student';
 
@@ -25,6 +25,7 @@ const translations = {
     validation: 'Please enter your email and password.',
     toggleLabel: 'زبان تبدیل کریں',
     toggleBackToEnglish: 'Switch to English',
+    registeredSuccess: '✅ Registration successful! Login with your credentials below.',
   },
   ur: {
     heading: 'رحمہ HMS',
@@ -44,13 +45,15 @@ const translations = {
     validation: 'براہ کرم ای میل اور پاس ورڈ درج کریں۔',
     toggleLabel: 'زبان تبدیل کریں',
     toggleBackToEnglish: 'Switch to English',
+    registeredSuccess: '✅ رجسٹریشن کامیاب! نیچے اپنی تفصیلات سے لاگ اِن کریں۔',
   },
 } as const;
 
 type Lang = keyof typeof translations;
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lang, setLang] = useState<Lang>('en');
   const t = (key: keyof (typeof translations)['en']) => translations[lang][key];
   const [email, setEmail] = useState('');
@@ -58,6 +61,18 @@ export default function SignInPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [role, setRole] = useState<Role>('student');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registeredMsg, setRegisteredMsg] = useState(false);
+
+  useEffect(() => {
+    const roleParam = searchParams.get('role');
+    const registered = searchParams.get('registered');
+    if (roleParam === 'admin' || roleParam === 'teacher' || roleParam === 'student') {
+      setRole(roleParam);
+    }
+    if (registered === '1') {
+      setRegisteredMsg(true);
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,10 +97,9 @@ export default function SignInPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Login success
-      alert(data.message);
-      // Redirect based on role
-      router.push(`/dashboard?role=${role}`);
+      // Login success - redirect based on actual role from server
+      const serverRole = data.user?.role === 'institute_admin' ? 'admin' : (data.user?.role || role);
+      router.push(`/dashboard?role=${serverRole}`);
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : 'Invalid credentials');
@@ -106,6 +120,13 @@ export default function SignInPage() {
             {lang === 'en' ? t('toggleLabel') : t('toggleBackToEnglish')}
           </button>
         </div>
+
+        {/* Registration success banner */}
+        {registeredMsg && (
+          <div className="mb-4 rounded-2xl bg-[#E5F4EC] border border-[#2F6B4F]/30 px-4 py-3 text-sm font-semibold text-[#1c3c33] text-center">
+            {t('registeredSuccess')}
+          </div>
+        )}
 
         {/* Logo / heading */}
         <header className="mb-10 text-center">
@@ -220,5 +241,17 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F7F1E6] flex items-center justify-center">
+        <div className="text-[#1c3c33] font-bold animate-pulse">Loading...</div>
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   );
 }

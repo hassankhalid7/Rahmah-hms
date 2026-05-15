@@ -1,42 +1,28 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, date, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, date, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { students, teachers, users } from './users';
 import { organizations } from './organizations';
 
-// Enums
-export const learningTypeEnum = pgEnum('learning_type', ['qaida', 'nazra', 'hifz']);
-// Note: progressAttendanceStatusEnum is used here to avoid conflict with marking attendance
-export const progressAttendanceStatusEnum = pgEnum('progress_attendance_status', ['present', 'absent', 'late', 'excused']);
-
-// Daily Progress Table
 export const dailyProgress = pgTable('daily_progress', {
     id: uuid('id').defaultRandom().primaryKey(),
     studentId: uuid('student_id').notNull().references(() => students.id),
     teacherId: uuid('teacher_id').notNull().references(() => teachers.id),
     date: date('date').notNull(),
-    learningType: learningTypeEnum('learning_type').notNull(),
-    attendanceStatus: progressAttendanceStatusEnum('attendance_status').notNull(),
+    learningType: text('learning_type').notNull(),
+    attendanceStatus: text('attendance_status').notNull(),
     teacherRemarks: text('teacher_remarks'),
-
-    // Qaida-specific fields
     qaidaLessonNumber: integer('qaida_lesson_number'),
     qaidaPageNumber: integer('qaida_page_number'),
-    qaidaTopic: varchar('qaida_topic', { length: 100 }),
+    qaidaTopic: text('qaida_topic'),
     qaidaMistakesCount: integer('qaida_mistakes_count'),
-
-    // Nazra-specific fields
     nazraParaNumber: integer('nazra_para_number'),
-    nazraFromAyah: varchar('nazra_from_ayah', { length: 20 }),
-    nazraToAyah: varchar('nazra_to_ayah', { length: 20 }),
+    nazraFromAyah: text('nazra_from_ayah'),
+    nazraToAyah: text('nazra_to_ayah'),
     nazraMistakesCount: integer('nazra_mistakes_count'),
-
-    // Hifz-specific fields
-    hifzSabaq: varchar('hifz_sabaq', { length: 100 }),
-    hifzSabqi: varchar('hifz_sabqi', { length: 100 }),
-    hifzManzil: varchar('hifz_manzil', { length: 100 }),
+    hifzSabaq: text('hifz_sabaq'),
+    hifzSabqi: text('hifz_sabqi'),
+    hifzManzil: text('hifz_manzil'),
     hifzAyatMistakes: jsonb('hifz_ayat_mistakes').$type<Array<{ ayah: string; mistakes: number }>>(),
-
-    // Metadata
     tenantId: uuid('tenant_id').notNull().references(() => organizations.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

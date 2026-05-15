@@ -1,13 +1,13 @@
-import { pgTable, uuid, varchar, text, integer, decimal, timestamp, date, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, decimal, timestamp, date, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
-import { students, teachers, users } from './users';
+import { students, teachers } from './users';
 
 export const exams = pgTable('exams', {
     id: uuid('id').defaultRandom().primaryKey(),
     organizationId: uuid('organization_id').notNull().references(() => organizations.id),
-    name: varchar('name', { length: 255 }).notNull(),
-    examType: varchar('exam_type', { length: 100 }), // Weekly, Monthly, Final, Jalsa, etc.
+    name: text('name').notNull(),
+    examType: text('exam_type'),
     syllabus: text('syllabus'),
     date: date('date'),
     metadata: jsonb('metadata'),
@@ -20,7 +20,7 @@ export const examResults = pgTable('exam_results', {
     studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
     examinerId: uuid('examiner_id').references(() => teachers.id),
     marks: decimal('marks', { precision: 5, scale: 2 }),
-    rating: varchar('rating', { length: 50 }), // Mumtaz, Jayyid, etc.
+    rating: text('rating'),
     mistakesCount: integer('mistakes_count'),
     pausesCount: integer('pauses_count'),
     remarks: text('remarks'),

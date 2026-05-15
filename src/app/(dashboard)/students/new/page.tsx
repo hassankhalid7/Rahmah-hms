@@ -1,31 +1,79 @@
 'use client';
 
-import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { studentSchema, StudentFormValues } from '@/lib/validations/student';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import Link from 'next/link';
+
+interface ClassItem { id: string; name: string; }
 
 export default function AddStudentPage() {
     const router = useRouter();
+    const [classes,    setClasses]    = useState<ClassItem[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [error,      setError]      = useState('');
 
-    const { register, handleSubmit, formState: { errors } } = useForm<StudentFormValues>({
-        resolver: zodResolver(studentSchema),
-        defaultValues: {
-            gender: 'Male',
-            admissionDate: new Date().toISOString().split('T')[0]
-        }
+    // Form state
+    const [form, setForm] = useState({
+        firstName:        '',
+        lastName:         '',
+        phone:            '',
+        address:          '',
+        rollId:           '',
+        description:      '',
+        admissionDate:    new Date().toISOString().split('T')[0],
+        classId:          '',
+        guardianFirstName:'',
+        guardianLastName: '',
+        guardianRelation: '',
+        guardianPhone:    '',
+        guardianEmail:    '',
+        gender:           'Male',
+        dateOfBirth:      '',
+        email:            '',
     });
 
-    const onSubmit = async (data: StudentFormValues) => {
+    const set = (key: string, val: string) =>
+        setForm(f => ({ ...f, [key]: val }));
+
+    // Load classes
+    useEffect(() => {
+        fetch('/api/classes')
+            .then(r => r.json())
+            .then(data => setClasses(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+
+    const handleSubmit = async () => {
+        setError('');
+        if (!form.firstName.trim()) { setError('First name is required.'); return; }
+        if (!form.lastName.trim())  { setError('Last name is required.');  return; }
+        if (!form.guardianFirstName.trim()) { setError('Guardian first name is required.'); return; }
+        if (!form.guardianLastName.trim())  { setError('Guardian last name is required.');  return; }
+        if (!form.guardianRelation.trim())  { setError('Guardian relation is required.');   return; }
+        if (!form.guardianPhone.trim())     { setError('Guardian phone is required.');      return; }
+
         setSubmitting(true);
         try {
+            // 1. Create student
             const res = await fetch('/api/students', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify({
+                    firstName:         form.firstName.trim(),
+                    lastName:          form.lastName.trim(),
+                    email:             form.email.trim() || undefined,
+                    phone:             form.phone.trim() || undefined,
+                    dateOfBirth:       form.dateOfBirth || undefined,
+                    gender:            form.gender,
+                    guardianFirstName: form.guardianFirstName.trim(),
+                    guardianLastName:  form.guardianLastName.trim(),
+                    guardianRelation:  form.guardianRelation.trim(),
+                    guardianPhone:     form.guardianPhone.trim(),
+                    guardianEmail:     form.guardianEmail.trim() || undefined,
+                    admissionDate:     form.admissionDate || undefined,
+                    address:           form.address.trim() || undefined,
+                    assignedClass:     form.classId || undefined,
+                }),
             });
 
             if (!res.ok) {
@@ -33,164 +81,192 @@ export default function AddStudentPage() {
                 throw new Error(msg || 'Failed to create student');
             }
 
-            // Success
-            router.push('/students');
-            router.refresh();
-        } catch (error) {
-            console.error(error);
-            alert('Error creating student. Please try again.');
+            const newStudent = await res.json();
+
+            // 2. Enroll in class if selected
+            if (form.classId && newStudent?.id) {
+                await fetch(`/api/classes/${form.classId}/enroll`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentId: newStudent.id }),
+                }).catch(() => {}); // non-blocking
+            }
+
+            router.push('/students?role=admin');
+        } catch (e: any) {
+            setError(e.message || 'Something went wrong. Please try again.');
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 mt-16">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div className="min-h-screen bg-[#FDFBF7] p-4 md:p-8">
+            <div className="max-w-2xl mx-auto space-y-6">
+
                 {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link
-                        href="/students"
-                        className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm hover:bg-brand-50 transition-all group"
-                    >
-                        <span className="text-gray-400 group-hover:text-brand-600 transition-colors">←</span>
+                <div className="flex items-center gap-3">
+                    <Link href="/students?role=admin"
+                        className="w-9 h-9 rounded-xl border border-[#d0d8cf] bg-white flex items-center justify-center text-[#1c3c33]/50 hover:border-[#2F6B4F] hover:text-[#2F6B4F] transition-colors">
+                        ←
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">New Student Admission</h1>
-                        <p className="text-gray-500 mt-1">Register a new student to the institute.</p>
+                        <h1 className="text-xl font-black text-[#1c3c33]">Add Student</h1>
+                        <p className="text-xs text-[#1c3c33]/40 mt-0.5">Fill in student details and assign to a class</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Avatar & Profile Preview */}
-                    <div className="md:col-span-1 space-y-6">
-                        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center">
-                            <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-brand-50 text-4xl shadow-inner relative group cursor-pointer">
-                                👤
-                            </div>
-                            <h3 className="font-bold text-gray-900">Student Photo</h3>
-                            <p className="text-xs text-gray-400 mt-2 px-4 italic line-height-relaxed">Upload feature coming soon.</p>
-                        </div>
-
-                        <div className="bg-brand-600 p-8 rounded-3xl shadow-xl shadow-brand-900/10 text-white overflow-hidden relative">
-                            <div className="relative z-10">
-                                <h4 className="font-bold flex items-center gap-2 mb-4">
-                                    <span>ℹ️</span> Quick Tip
-                                </h4>
-                                <p className="text-sm text-brand-100 leading-relaxed">Ensure the guardian information is accurate to enable automatic progress notifications via WhatsApp or Email.</p>
-                            </div>
-                            <div className="absolute -bottom-4 -right-4 text-9xl text-white/10 select-none">S</div>
-                        </div>
+                {/* Error */}
+                {error && (
+                    <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-semibold text-red-700">
+                        ⚠️ {error}
                     </div>
+                )}
 
-                    {/* Admission Form */}
-                    <div className="md:col-span-2 space-y-8">
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                            {/* Personal Info */}
-                            <Section title="Personal Information" icon="👤">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField label="First Name" error={errors.firstName?.message} {...register('firstName')} placeholder="e.g. Abdullah" />
-                                    <FormField label="Last Name" error={errors.lastName?.message} {...register('lastName')} placeholder="e.g. Qureshi" />
-                                    <FormField label="Date of Birth" type="date" error={errors.dateOfBirth?.message} {...register('dateOfBirth')} />
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Gender</label>
-                                        <div className="flex gap-4">
-                                            <label className="flex-1 p-3 rounded-xl border border-gray-100 bg-gray-50 cursor-pointer hover:border-brand-200 transition-all flex items-center gap-3">
-                                                <input type="radio" value="Male" {...register('gender')} className="accent-brand-600" />
-                                                <span className="text-sm font-medium text-gray-700">Male</span>
-                                            </label>
-                                            <label className="flex-1 p-3 rounded-xl border border-gray-100 bg-gray-50 cursor-pointer hover:border-brand-200 transition-all flex items-center gap-3">
-                                                <input type="radio" value="Female" {...register('gender')} className="accent-brand-600" />
-                                                <span className="text-sm font-medium text-gray-700">Female</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <FormField label="Contact Email (Optional)" type="email" error={errors.email?.message} {...register('email')} placeholder="student@example.com" />
-                                    </div>
-                                </div>
-                            </Section>
-
-                            {/* Admission Info */}
-                            <Section title="Admission Details" icon="🏫">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Assigned Class</label>
-                                        <select
-                                            {...register('assignedClass')}
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:border-brand-500 outline-none transition-all text-sm"
-                                        >
-                                            <option value="">Select a class</option>
-                                            <option value="Halaqa A">Halaqa A (Hifz)</option>
-                                            <option value="Nazra 1">Nazra 1</option>
-                                            <option value="Qaida 3">Qaida 3</option>
-                                        </select>
-                                    </div>
-                                    <FormField label="Admission Date" type="date" error={errors.admissionDate?.message} {...register('admissionDate')} />
-                                    <div className="md:col-span-2">
-                                        <FormField label="Residential Address" error={errors.address?.message} {...register('address')} placeholder="Enter complete address..." />
-                                    </div>
-                                </div>
-                            </Section>
-
-                            {/* Guardian Info */}
-                            <Section title="Guardian / Parent Information" icon="👨‍👩‍👧‍👦">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField label="Guardian First Name" error={errors.guardianFirstName?.message} {...register('guardianFirstName')} placeholder="First name" />
-                                    <FormField label="Guardian Last Name" error={errors.guardianLastName?.message} {...register('guardianLastName')} placeholder="Last name" />
-                                    <FormField label="Relation" error={errors.guardianRelation?.message} {...register('guardianRelation')} placeholder="e.g. Father, Mother" />
-                                    <FormField label="Phone Number" error={errors.guardianPhone?.message} {...register('guardianPhone')} placeholder="e.g. +92 300 1234567" />
-                                    <div className="md:col-span-2">
-                                        <FormField label="Email Address" type="email" error={errors.guardianEmail?.message} {...register('guardianEmail')} placeholder="e.g. guardian@rahmah.app" />
-                                    </div>
-                                </div>
-                            </Section>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-100">
-                                <Link
-                                    href="/students"
-                                    className="px-8 py-3 text-sm font-bold text-gray-400 hover:text-gray-800 transition-colors"
-                                >
-                                    Cancel
-                                </Link>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-8 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Creating...' : 'Complete Admission'}
-                                </button>
-                            </div>
-                        </form>
+                {/* ── Student Details ── */}
+                <Section title="Student Details" icon="👤">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="First Name *">
+                                <input type="text" placeholder="e.g. Ali" value={form.firstName}
+                                    onChange={e => set('firstName', e.target.value)} className={inputCls} />
+                            </Field>
+                            <Field label="Last Name *">
+                                <input type="text" placeholder="e.g. Raza" value={form.lastName}
+                                    onChange={e => set('lastName', e.target.value)} className={inputCls} />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Roll / Student ID">
+                                <input type="text" placeholder="e.g. STU-001" value={form.rollId}
+                                    onChange={e => set('rollId', e.target.value)} className={inputCls} />
+                            </Field>
+                            <Field label="Phone Number">
+                                <input type="tel" placeholder="+92 300 1234567" value={form.phone}
+                                    onChange={e => set('phone', e.target.value)} className={inputCls} />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Date of Birth">
+                                <input type="date" value={form.dateOfBirth}
+                                    onChange={e => set('dateOfBirth', e.target.value)} className={inputCls} />
+                            </Field>
+                            <Field label="Gender">
+                                <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls}>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </Field>
+                        </div>
+                        <Field label="Email (optional)">
+                            <input type="email" placeholder="student@example.com" value={form.email}
+                                onChange={e => set('email', e.target.value)} className={inputCls} />
+                        </Field>
+                        <Field label="Address">
+                            <input type="text" placeholder="Complete residential address" value={form.address}
+                                onChange={e => set('address', e.target.value)} className={inputCls} />
+                        </Field>
+                        <Field label="Description / Comments">
+                            <textarea rows={3} placeholder="Any notes about this student…" value={form.description}
+                                onChange={e => set('description', e.target.value)}
+                                className={`${inputCls} resize-none`} />
+                        </Field>
                     </div>
+                </Section>
+
+                {/* ── Guardian Information ── */}
+                <Section title="Guardian / Parent Information" icon="👨‍👩‍👧">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Guardian First Name *">
+                                <input type="text" placeholder="First name" value={form.guardianFirstName}
+                                    onChange={e => set('guardianFirstName', e.target.value)} className={inputCls} />
+                            </Field>
+                            <Field label="Guardian Last Name *">
+                                <input type="text" placeholder="Last name" value={form.guardianLastName}
+                                    onChange={e => set('guardianLastName', e.target.value)} className={inputCls} />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Relation *">
+                                <input type="text" placeholder="e.g. Father, Mother" value={form.guardianRelation}
+                                    onChange={e => set('guardianRelation', e.target.value)} className={inputCls} />
+                            </Field>
+                            <Field label="Phone Number *">
+                                <input type="tel" placeholder="+92 300 1234567" value={form.guardianPhone}
+                                    onChange={e => set('guardianPhone', e.target.value)} className={inputCls} />
+                            </Field>
+                        </div>
+                        <Field label="Guardian Email (optional)">
+                            <input type="email" placeholder="guardian@example.com" value={form.guardianEmail}
+                                onChange={e => set('guardianEmail', e.target.value)} className={inputCls} />
+                        </Field>
+                    </div>
+                </Section>
+
+                {/* ── Admission Details ── */}
+                <Section title="Admission Details" icon="🏫">
+                    <div className="space-y-4">
+                        <Field label="Admission Date">
+                            <input type="date" value={form.admissionDate}
+                                onChange={e => set('admissionDate', e.target.value)} className={inputCls} />
+                        </Field>
+                        <Field label="Assign to Class">
+                            <select value={form.classId} onChange={e => set('classId', e.target.value)} className={inputCls}>
+                                <option value="">Select a class (optional)…</option>
+                                {classes.length === 0 && (
+                                    <option disabled>No classes found — create a class first</option>
+                                )}
+                                {classes.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                            {classes.length === 0 && (
+                                <p className="text-xs text-amber-600 mt-1.5">
+                                    No classes yet.{' '}
+                                    <Link href="/classes/new?role=admin" className="font-bold underline">Create a class first →</Link>
+                                </p>
+                            )}
+                        </Field>
+                    </div>
+                </Section>
+
+                {/* ── Actions ── */}
+                <div className="flex gap-3 pb-8">
+                    <Link href="/students?role=admin"
+                        className="flex-1 py-3 rounded-2xl border border-[#d0d8cf] bg-white text-sm font-bold text-[#1c3c33]/60 text-center hover:border-[#1c3c33]/40 transition-colors">
+                        Cancel
+                    </Link>
+                    <button onClick={handleSubmit} disabled={submitting}
+                        className="flex-1 py-3 rounded-2xl bg-[#2F6B4F] text-white text-sm font-bold hover:bg-[#285c44] transition-colors shadow-lg shadow-[#2F6B4F]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {submitting ? 'Adding…' : 'Add Student'}
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
 
+// ── Helpers ──────────────────────────────────────────────────────
+const inputCls = 'w-full rounded-xl border border-[#d0d8cf] bg-[#FDFBF7] px-3 py-2.5 text-sm text-[#1c3c33] outline-none focus:border-[#2F6B4F] focus:ring-2 focus:ring-[#2F6B4F]/10 transition-colors';
+
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                <span className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xl border border-gray-100 shadow-inner">{icon}</span>
-                {title}
-            </h2>
-            <div className="pt-2">{children}</div>
+        <div className="bg-white rounded-2xl border border-[#1c3c33]/6 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-[#1c3c33]/5 bg-[#FAFAF8]">
+                <span className="text-base">{icon}</span>
+                <h2 className="text-sm font-black text-[#1c3c33]">{title}</h2>
+            </div>
+            <div className="p-5">{children}</div>
         </div>
     );
 }
 
-function FormField({ label, error, ...props }: { label: string; error?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">{label}</label>
-            <input
-                className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'} focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/5 outline-none transition-all placeholder:text-gray-400 text-sm`}
-                {...props}
-            />
-            {error && <p className="text-xs text-red-500 font-bold ml-1">{error}</p>}
+        <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-[#1c3c33]/50 uppercase tracking-widest">{label}</label>
+            {children}
         </div>
     );
 }

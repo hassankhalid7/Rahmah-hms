@@ -1,14 +1,14 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
 
 export const notifications = pgTable('notifications', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    type: varchar('type', { length: 50 }), // alert, message, progress, system
-    title: varchar('title', { length: 255 }).notNull(),
+    type: text('type'),
+    title: text('title').notNull(),
     message: text('message').notNull(),
-    data: jsonb('data'), // For deep linking or extra context
+    data: jsonb('data'),
     isRead: boolean('is_read').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });

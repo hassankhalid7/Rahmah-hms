@@ -1,222 +1,294 @@
 'use client';
 
-import Link from 'next/link';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { classSchema, ClassFormValues } from '@/lib/validations/class';
-import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+
+interface Teacher { id: string; name: string; }
+interface Student { id: string; name: string; studentNumber?: string; }
+interface Enrollment { id: string; studentId: string; name: string; }
 
 export default function EditClassPage() {
     const router = useRouter();
     const params = useParams();
     const id = params.id as string;
 
+    const [loading,    setLoading]    = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [teachers, setTeachers] = useState<{ id: string, name: string }[]>([]);
+    const [error,      setError]      = useState('');
+    const [success,    setSuccess]    = useState('');
 
-    const { register, control, handleSubmit, reset, formState: { errors } } = useForm<ClassFormValues>({
-        resolver: zodResolver(classSchema),
-        defaultValues: {
-            schedule: []
-        }
-    });
+    const [teachers,    setTeachers]    = useState<Teacher[]>([]);
+    const [allStudents, setAllStudents] = useState<Student[]>([]);
+    const [enrolled,    setEnrolled]    = useState<Enrollment[]>([]);
 
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "schedule"
-    });
+    // Form fields
+    const [className,   setClassName]   = useState('');
+    const [description, setDescription] = useState('');
+    const [teacherId,   setTeacherId]   = useState('');
+
+    // New students to add
+    const [newSlots, setNewSlots] = useState<string[]>(['']);
 
     useEffect(() => {
-        // Fetch teachers
+        // Load teachers
         fetch('/api/staff?role=teacher')
-            .then(res => res.json())
-            .then(data => {
-                setTeachers(data.map((t: any) => ({
+            .then(r => r.json())
+            .then(data => setTeachers(
+                (Array.isArray(data) ? data : []).map((t: any) => ({
                     id: t.teacherId || t.id,
-                    name: `${t.firstName} ${t.lastName}`
-                })));
-            });
+                    name: `${t.firstName || ''} ${t.lastName || ''}`.trim(),
+                }))
+            )).catch(() => {});
 
-        // Fetch class details
+        // Load all students
+        fetch('/api/students')
+            .then(r => r.json())
+            .then(data => setAllStudents(
+                (Array.isArray(data) ? data : []).map((s: any) => ({
+                    id: s.id,
+                    name: s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+                    studentNumber: s.studentId || s.studentNumber || '',
+                }))
+            )).catch(() => {});
+
+        // Load class details
         fetch(`/api/classes/${id}`)
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch class');
-                return res.json();
-            })
+            .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
             .then(data => {
-                // Populate form
-                reset({
-                    name: data.name,
-                    description: data.description || '',
-                    teacherId: data.teacherId || '',
-                    startDate: data.startDate || '',
-                    endDate: data.endDate || '',
-                    schedule: data.schedule || []
-                });
+                setClassName(data.name || '');
+                setDescription(data.description || '');
+                setTeacherId(data.teacherId || '');
+                const enrollments = (data.enrollments || []).map((e: any) => ({
+                    id: e.id,
+                    studentId: e.student?.id || e.studentId,
+                    name: e.student?.user
+                        ? `${e.student.user.firstName} ${e.student.user.lastName}`.trim()
+                        : 'Unknown',
+                }));
+                setEnrolled(enrollments);
                 setLoading(false);
             })
-            .catch(err => {
-                console.error(err);
-                alert('Failed to load class details');
-                router.push('/classes');
-            });
-    }, [id, reset, router]);
+            .catch(() => { router.push('/classes?role=admin'); });
+    }, [id, router]);
 
-    const onSubmit = async (data: ClassFormValues) => {
+    // Remove enrolled student
+    const removeEnrolled = async (studentId: string) => {
+        try {
+            await fetch(`/api/classes/${id}/enroll?studentId=${studentId}`, { method: 'DELETE' });
+            setEnrolled(prev => prev.filter(e => e.studentId !== studentId));
+        } catch { alert('Failed to remove student'); }
+    };
+
+    // New slot helpers
+    const updateSlot = (index: number, value: string) =>
+        setNewSlots(prev => prev.map((s, i) => i === index ? value : s));
+    const addSlot = () => setNewSlots(prev => [...prev, '']);
+    const removeSlot = (index: number) =>
+        setNewSlots(prev => prev.filter((_, i) => i !== index));
+
+    // Students not yet enrolled
+    const enrolledIds = enrolled.map(e => e.studentId);
+    const unenrolled = allStudents.filter(s => !enrolledIds.includes(s.id));
+    const availableFor = (index: number) => {
+        const others = newSlots.filter((_, i) => i !== index).filter(Boolean);
+        return unenrolled.filter(s => !others.includes(s.id));
+    };
+
+    const handleSave = async () => {
+        setError(''); setSuccess('');
+        if (!className.trim()) { setError('Class name is required.'); return; }
         setSubmitting(true);
         try {
+            // Update class info
             const res = await fetch(`/api/classes/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify({
+                    name: className.trim(),
+                    description: description.trim() || undefined,
+                    teacherId: teacherId || undefined,
+                    schedule: [],
+                }),
             });
+            if (!res.ok) throw new Error(await res.text());
 
-            if (!res.ok) {
-                const msg = await res.text();
-                throw new Error(msg || 'Failed to update class');
-            }
+            // Enroll new students
+            const toEnroll = newSlots.filter(Boolean);
+            await Promise.all(
+                toEnroll.map(studentId =>
+                    fetch(`/api/classes/${id}/enroll`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ studentId }),
+                    })
+                )
+            );
 
-            // Success
-            router.push(`/classes/${id}`);
-            router.refresh();
-        } catch (error) {
-            console.error(error);
-            alert('Error updating class. Please try again.');
+            setSuccess('Changes saved successfully!');
+            setNewSlots(['']);
+            // Refresh enrolled list
+            const updated = await fetch(`/api/classes/${id}`).then(r => r.json());
+            setEnrolled((updated.enrollments || []).map((e: any) => ({
+                id: e.id,
+                studentId: e.student?.id || e.studentId,
+                name: e.student?.user
+                    ? `${e.student.user.firstName} ${e.student.user.lastName}`.trim()
+                    : 'Unknown',
+            })));
+        } catch (e: any) {
+            setError(e.message || 'Something went wrong.');
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-400">Loading class details...</div>;
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="w-8 h-8 border-2 border-[#2F6B4F] border-t-transparent rounded-full animate-spin" />
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 mt-16">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div className="min-h-screen bg-[#FDFBF7] p-4 md:p-8">
+            <div className="max-w-2xl mx-auto space-y-6">
+
                 {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link
-                        href={`/classes/${id}`}
-                        className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm hover:bg-brand-50 transition-all group"
-                    >
-                        <span className="text-gray-400 group-hover:text-brand-600 transition-colors">←</span>
+                <div className="flex items-center gap-3">
+                    <Link href={`/classes/${id}?role=admin`}
+                        className="w-9 h-9 rounded-xl border border-[#d0d8cf] bg-white flex items-center justify-center text-[#1c3c33]/50 hover:border-[#2F6B4F] hover:text-[#2F6B4F] transition-colors">
+                        ←
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Edit Halaqa</h1>
-                        <p className="text-gray-500 mt-1">Update class details and schedule.</p>
+                        <h1 className="text-xl font-black text-[#1c3c33]">Edit Class</h1>
+                        <p className="text-xs text-[#1c3c33]/40 mt-0.5">Update class info, teacher and students</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Form */}
-                    <div className="md:col-span-3 space-y-8">
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                            <Section title="Class Details" icon="📚">
-                                <div className="space-y-4">
-                                    <FormField label="Class Name" error={errors.name?.message} {...register('name')} placeholder="e.g. Hifz Group A" />
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Description</label>
-                                        <textarea
-                                            {...register('description')}
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:border-brand-500 outline-none transition-all placeholder:text-gray-400 text-sm min-h-[100px]"
-                                            placeholder="Optional description..."
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Assign Teacher</label>
-                                        <select
-                                            {...register('teacherId')}
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:border-brand-500 outline-none transition-all text-sm"
-                                        >
-                                            <option value="">Select a teacher</option>
-                                            {teachers.map(t => (
-                                                <option key={t.id} value={t.id}>{t.name}</option>
-                                            ))}
-                                        </select>
-                                        {errors.teacherId && <p className="text-xs text-red-500 font-bold ml-1">{errors.teacherId.message}</p>}
-                                    </div>
-                                </div>
-                            </Section>
+                {error   && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-semibold text-red-700">⚠️ {error}</div>}
+                {success && <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-700">✓ {success}</div>}
 
-                            <Section title="Schedule" icon="📅">
-                                <div className="space-y-4">
-                                    {fields.map((field, index) => (
-                                        <div key={field.id} className="flex gap-4 items-end bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Day</label>
-                                                <select {...register(`schedule.${index}.day`)} className="w-full p-2 rounded-lg border border-gray-200 text-sm">
-                                                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => (
-                                                        <option key={d} value={d}>{d}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Start</label>
-                                                <input type="time" {...register(`schedule.${index}.startTime`)} className="w-full p-2 rounded-lg border border-gray-200 text-sm" />
-                                            </div>
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">End</label>
-                                                <input type="time" {...register(`schedule.${index}.endTime`)} className="w-full p-2 rounded-lg border border-gray-200 text-sm" />
-                                            </div>
-                                            <button type="button" onClick={() => remove(index)} className="p-2 text-red-400 hover:text-red-600">✕</button>
+                {/* ── Class Information ── */}
+                <Section title="Class Information" icon="📚">
+                    <div className="space-y-4">
+                        <Field label="Class Name *">
+                            <input type="text" value={className}
+                                onChange={e => setClassName(e.target.value)}
+                                className={inputCls} />
+                        </Field>
+                        <Field label="Description (optional)">
+                            <textarea rows={3} value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                className={`${inputCls} resize-none`} />
+                        </Field>
+                    </div>
+                </Section>
+
+                {/* ── Teacher Information ── */}
+                <Section title="Teacher Information" icon="👨‍🏫">
+                    <Field label="Assigned Teacher">
+                        <select value={teacherId} onChange={e => setTeacherId(e.target.value)} className={inputCls}>
+                            <option value="">Select a teacher…</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </Field>
+                </Section>
+
+                {/* ── Current Students ── */}
+                <Section title="Enrolled Students" icon="🎓">
+                    {enrolled.length === 0 ? (
+                        <p className="text-xs text-[#1c3c33]/40 italic">No students enrolled yet.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {enrolled.map(e => (
+                                <div key={e.studentId} className="flex items-center justify-between rounded-xl border border-[#d0d8cf]/60 bg-[#FAFAF8] px-3 py-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-7 h-7 rounded-lg bg-[#E8F5EE] flex items-center justify-center text-xs font-black text-[#2F6B4F]">
+                                            {e.name.charAt(0)}
                                         </div>
-                                    ))}
+                                        <span className="text-sm font-semibold text-[#1c3c33]">{e.name}</span>
+                                    </div>
                                     <button
                                         type="button"
-                                        onClick={() => append({ day: 'Monday', startTime: '16:00', endTime: '18:00' })}
-                                        className="text-sm font-bold text-brand-600 hover:text-brand-700 flex items-center gap-2"
-                                    >
-                                        + Add Session
+                                        onClick={() => removeEnrolled(e.studentId)}
+                                        className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded-lg hover:bg-red-50">
+                                        Remove
                                     </button>
                                 </div>
-                            </Section>
+                            ))}
+                        </div>
+                    )}
+                </Section>
 
-                            {/* Actions */}
-                            <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-100">
-                                <Link
-                                    href={`/classes/${id}`}
-                                    className="px-8 py-3 text-sm font-bold text-gray-400 hover:text-gray-800 transition-colors"
-                                >
-                                    Cancel
-                                </Link>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-8 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Saving...' : 'Save Changes'}
-                                </button>
+                {/* ── Add More Students ── */}
+                <Section title="Add More Students" icon="👤">
+                    <div className="space-y-3">
+                        {newSlots.map((val, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <div className="flex-1">
+                                    <select value={val} onChange={e => updateSlot(index, e.target.value)} className={inputCls}>
+                                        <option value="">
+                                            {index === 0 ? 'Select a student…' : 'Add another student…'}
+                                        </option>
+                                        {unenrolled.length === 0 && <option disabled>All students already enrolled</option>}
+                                        {availableFor(index).map(s => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.name}{s.studentNumber ? ` (${s.studentNumber})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {newSlots.length > 1 && (
+                                    <button type="button" onClick={() => removeSlot(index)}
+                                        className="w-9 h-9 rounded-xl border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition-colors flex items-center justify-center text-sm shrink-0">
+                                        ✕
+                                    </button>
+                                )}
                             </div>
-                        </form>
+                        ))}
+                        <button type="button" onClick={addSlot}
+                            className="flex items-center gap-2 text-xs font-bold text-[#2F6B4F] hover:text-[#285c44] transition-colors mt-1">
+                            <span className="w-6 h-6 rounded-lg bg-[#E8F5EE] flex items-center justify-center text-sm">＋</span>
+                            Add other student
+                        </button>
                     </div>
+                </Section>
+
+                {/* ── Actions ── */}
+                <div className="flex gap-3 pb-8">
+                    <Link href={`/classes/${id}?role=admin`}
+                        className="flex-1 py-3 rounded-2xl border border-[#d0d8cf] bg-white text-sm font-bold text-[#1c3c33]/60 text-center hover:border-[#1c3c33]/40 transition-colors">
+                        Cancel
+                    </Link>
+                    <button onClick={handleSave} disabled={submitting}
+                        className="flex-1 py-3 rounded-2xl bg-[#2F6B4F] text-white text-sm font-bold hover:bg-[#285c44] transition-colors shadow-lg shadow-[#2F6B4F]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {submitting ? 'Saving…' : 'Save Changes'}
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
 
+const inputCls = 'w-full rounded-xl border border-[#d0d8cf] bg-[#FDFBF7] px-3 py-2.5 text-sm text-[#1c3c33] outline-none focus:border-[#2F6B4F] focus:ring-2 focus:ring-[#2F6B4F]/10 transition-colors';
+
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                <span className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xl border border-gray-100 shadow-inner">{icon}</span>
-                {title}
-            </h2>
-            <div className="pt-2">{children}</div>
+        <div className="bg-white rounded-2xl border border-[#1c3c33]/6 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-[#1c3c33]/5 bg-[#FAFAF8]">
+                <span className="text-base">{icon}</span>
+                <h2 className="text-sm font-black text-[#1c3c33]">{title}</h2>
+            </div>
+            <div className="p-5">{children}</div>
         </div>
     );
 }
 
-function FormField({ label, error, ...props }: { label: string; error?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">{label}</label>
-            <input
-                className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'} focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/5 outline-none transition-all placeholder:text-gray-400 text-sm`}
-                {...props}
-            />
-            {error && <p className="text-xs text-red-500 font-bold ml-1">{error}</p>}
+        <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-[#1c3c33]/50 uppercase tracking-widest">{label}</label>
+            {children}
         </div>
     );
 }

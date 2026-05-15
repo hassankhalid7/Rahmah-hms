@@ -42,11 +42,11 @@ export default function ClassesPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-gray-100">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">Halaqa Management</h1>
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">Classes Management</h1>
                     <p className="text-gray-500 mt-1 font-medium">Manage classes, assign teachers, and track enrollments.</p>
                 </div>
-                <Link href="/classes/new" className="px-6 py-3 bg-brand-600 text-white rounded-2xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 inline-flex items-center gap-2 active:scale-95">
-                    <span>+</span> Create New Halaqa
+                <Link href="/classes/new?role=admin" className="px-6 py-3 bg-brand-600 text-white rounded-2xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 inline-flex items-center gap-2 active:scale-95">
+                    <span>+</span> Create Classes
                 </Link>
             </div>
 
@@ -73,11 +73,11 @@ export default function ClassesPage() {
                 ) : filteredClasses.length > 0 ? (
                     filteredClasses.map((cls) => (
                         <Link
-                            href={`/classes/${cls.id}`}
+                            href={`/classes/${cls.id}?role=admin`}
                             key={cls.id}
                             className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-brand-900/5 hover:-translate-y-1 transition-all group relative overflow-hidden"
                         >
-                            <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl font-black grayscale group-hover:scale-110 transition-transform">🕌</div>
+                            <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl font-black grayscale group-hover:scale-110 transition-transform">📚</div>
 
                             <div className="relative z-10 space-y-6">
                                 <div className="space-y-2">
@@ -103,8 +103,8 @@ export default function ClassesPage() {
                     ))
                 ) : (
                     <div className="col-span-full py-20 text-center">
-                        <div className="text-6xl mb-4 grayscale opacity-20">🕌</div>
-                        <p className="text-gray-400 font-bold italic">No classes found.</p>
+                        <div className="text-6xl mb-4 grayscale opacity-20">📚</div>
+                        <p className="text-gray-400 font-bold">No classes found.</p>
                     </div>
                 )}
             </div>

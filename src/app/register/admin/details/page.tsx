@@ -133,6 +133,7 @@ function AdminDetailsForm() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const t = (key: TranslationKey) => translations[lang][key];
 
@@ -141,14 +142,25 @@ function AdminDetailsForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
 
     if (!form.acceptedTerms) {
-      alert(t('acceptTermsAlert'));
+      setErrorMsg(t('acceptTermsAlert'));
       return;
     }
 
     if (!form.password || form.password !== form.confirmPassword) {
-      alert(t('passwordsMismatchAlert'));
+      setErrorMsg(t('passwordsMismatchAlert'));
+      return;
+    }
+
+    if (!form.instituteName || !form.instituteAddress || !form.adminName) {
+      setErrorMsg(lang === 'ur' ? 'براہ کرم تمام ضروری خانے پُر کریں۔' : 'Please fill all required fields: Institute Name, Address, and Admin Name.');
+      return;
+    }
+
+    if (!form.adminEmail && !form.adminPhone) {
+      setErrorMsg(lang === 'ur' ? 'لاگ اِن کے لیے ای میل یا فون نمبر ضروری ہے۔' : 'Please provide an Email or Phone number for login.');
       return;
     }
 
@@ -174,11 +186,11 @@ function AdminDetailsForm() {
         throw new Error(errorMessage);
       }
 
-      alert(t('submitSuccess'));
-      router.push('/sign-in');
+      // Registration successful — redirect to sign-in with admin pre-selected
+      router.push('/sign-in?role=admin&registered=1');
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+      setErrorMsg(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -456,6 +468,14 @@ function AdminDetailsForm() {
 
             {/* Terms & Actions */}
             <section className="space-y-4 border-t border-[#e2e6dd] pt-5">
+
+              {/* Error message */}
+              {errorMsg && (
+                <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-semibold text-red-700">
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+
               <label className="flex items-start gap-3 text-sm text-[#1c3c33]/75">
                 <input
                   type="checkbox"

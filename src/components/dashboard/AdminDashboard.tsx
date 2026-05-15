@@ -15,24 +15,22 @@ type DashboardStats = {
 
 type RecentProgress = {
     studentName: string;
-    teacherName: string;
-    learningType: 'qaida' | 'nazra' | 'hifz';
+    learningType: string;
     date: string;
-    attendanceStatus: 'present' | 'absent' | 'late' | 'excused';
+    attendanceStatus: string;
     teacherRemarks: string | null;
 };
 
-type StaffOverview = {
+type StaffMember = {
     name: string;
     role: string;
     specialization: string | null;
-    studentCount: number;
 };
 
 type DashboardData = {
     stats: DashboardStats;
     recentProgress: RecentProgress[];
-    staffOverview: StaffOverview[];
+    staffOverview: StaffMember[];
     message?: string | null;
 };
 
@@ -43,360 +41,280 @@ export default function AdminDashboard({ user }: { user: any }) {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/dashboard/stats');
-                
-                if (!response.ok) {
-                    throw new Error('Failed to fetch dashboard data');
-                }
-                
-                const result = await response.json();
-                setData(result);
-            } catch (err) {
-                console.error('Dashboard data fetch error:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDashboardData();
+        fetch('/api/dashboard/stats')
+            .then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); })
+            .then(setData)
+            .catch(e => setError(e.message))
+            .finally(() => setLoading(false));
     }, []);
 
     const isUrdu = lang === 'ur';
 
-    // Loading state
-    if (loading) {
-        return (
-            <div className="w-full text-[#1c3c33] animate-in fade-in duration-500" dir={isUrdu ? 'rtl' : 'ltr'}>
-                <div className="space-y-5">
-                    <div className="flex items-center justify-center py-20">
-                        <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2F6B4F] mx-auto mb-4"></div>
-                            <p className="text-[#1c3c33]/60">{t('Loading dashboard...', 'ڈیش بورڈ لوڈ ہو رہا ہے...')}</p>
-                        </div>
-                    </div>
-                </div>
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center space-y-3">
+                <div className="w-9 h-9 border-2 border-[#2F6B4F] border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-sm text-[#1c3c33]/40 font-medium">{t('Loading...', 'لوڈ ہو رہا ہے...')}</p>
             </div>
-        );
-    }
+        </div>
+    );
 
-    // Error state
-    if (error) {
-        return (
-            <div className="w-full text-[#1c3c33] animate-in fade-in duration-500" dir={isUrdu ? 'rtl' : 'ltr'}>
-                <div className="space-y-5">
-                    <div className="flex items-center justify-center py-20">
-                        <div className="text-center">
-                            <div className="text-red-500 text-4xl mb-4">⚠️</div>
-                            <h3 className="text-lg font-bold text-[#1c3c33] mb-2">
-                                {t('Error Loading Dashboard', 'ڈیش بورڈ لوڈ کرنے میں خرابی')}
-                            </h3>
-                            <p className="text-[#1c3c33]/60 mb-4">{error}</p>
-                            <button 
-                                onClick={() => window.location.reload()} 
-                                className="px-4 py-2 bg-[#2F6B4F] text-white rounded-lg hover:bg-[#285c44] transition-colors"
-                            >
-                                {t('Retry', 'دوبارہ کوشش کریں')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+    if (error) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center space-y-3 max-w-xs">
+                <div className="text-3xl">⚠️</div>
+                <p className="font-bold text-[#1c3c33]">{t('Could not load dashboard', 'ڈیش بورڈ لوڈ نہیں ہوا')}</p>
+                <p className="text-xs text-[#1c3c33]/50">{error}</p>
+                <button onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-[#2F6B4F] text-white text-xs font-bold rounded-xl hover:bg-[#285c44] transition-colors">
+                    {t('Retry', 'دوبارہ کوشش')}
+                </button>
             </div>
-        );
-    }
+        </div>
+    );
 
-    // No data available
-    if (!data) {
-        return (
-            <div className="w-full text-[#1c3c33] animate-in fade-in duration-500" dir={isUrdu ? 'rtl' : 'ltr'}>
-                <div className="space-y-5">
-                    <div className="flex items-center justify-center py-20">
-                        <div className="text-center">
-                            <div className="text-[#2F6B4F] text-4xl mb-4">📊</div>
-                            <h3 className="text-lg font-bold text-[#1c3c33] mb-2">
-                                {t('No Data Available', 'کوئی ڈیٹا دستیاب نہیں')}
-                            </h3>
-                            <p className="text-[#1c3c33]/60">
-                                {t('Start by adding students and staff to see real statistics.', 'حقیقی اعداد و شمار دیکھنے کے لیے طلبہ اور عملہ شامل کریں۔')}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    if (!data) return null;
 
     const { stats, recentProgress, staffOverview, message } = data;
 
+    const today = new Date().toLocaleDateString(isUrdu ? 'ur-PK' : 'en-PK', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
     return (
-        <div
-            className="w-full text-[#1c3c33] animate-in fade-in duration-500"
-            dir={isUrdu ? 'rtl' : 'ltr'}
-        >
-            <div className="space-y-5">
-                {/* Header Section */}
-                <header className="flex flex-col gap-3 border-b border-[#2F6B4F]/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#1c3c33]">
-                            {t('Admin Dashboard', 'ایڈمن ڈیش بورڈ')}
-                        </h1>
-                        <p className="mt-1 text-sm font-bold text-[#2F6B4F]">
-                            {t('Faizan e Ashab e Sufa', 'فیضان اصحاب صفہ')}
-                        </p>
-                        <p className="mt-1 text-sm text-[#1c3c33]/65">
-                            {t(
-                                `Welcome back, ${user?.firstName || 'Admin'}. Here is your institute overview.`,
-                                `خوش آمدید، ${user?.firstName || 'ایڈمن'}۔ یہ آپ کے ادارے کا جائزہ ہے۔`
-                            )}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Link href="/reports?role=admin" className="rounded-xl border border-[#d0d8cf] bg-white px-4 py-2.5 text-xs font-bold text-[#1c3c33] shadow-sm hover:border-[#2F6B4F] hover:text-[#2F6B4F] transition-colors">
-                            {t('View Reports', 'رپورٹس دیکھیں')}
-                        </Link>
-                        <Link href="/students/new?role=admin" className="rounded-xl bg-[#2F6B4F] px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#2F6B4F]/20 hover:bg-[#285c44] transition-colors">
-                            {t('Add Student', 'طالب علم شامل کریں')}
-                        </Link>
-                    </div>
-                </header>
+        <div className="w-full text-[#1c3c33] space-y-6" dir={isUrdu ? 'rtl' : 'ltr'}>
 
-                {/* Message for empty state */}
-                {message && (
-                    <div className="rounded-xl border border-[#F57C00]/20 bg-[#FFF3E0] p-4">
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl">ℹ️</span>
-                            <p className="text-sm font-medium text-[#F57C00]">{message}</p>
-                        </div>
-                    </div>
-                )}
+            {/* ── Greeting ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <p className="text-[11px] font-semibold text-[#2F6B4F]/60 uppercase tracking-widest">{today}</p>
+                    <h1 className="text-xl font-black text-[#1c3c33] mt-0.5">
+                        {t(`Welcome back, ${user?.firstName || 'Admin'} 👋`, `خوش آمدید، ${user?.firstName || 'ایڈمن'} 👋`)}
+                    </h1>
+                </div>
+                <div className="flex gap-2">
+                    <Link href="/students/new?role=admin"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#2F6B4F] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#2F6B4F]/20 hover:bg-[#285c44] transition-colors">
+                        ＋ {t('Add Student', 'طالب علم شامل کریں')}
+                    </Link>
+                    <Link href="/reports?role=admin"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#d0d8cf] bg-white px-4 py-2 text-xs font-bold text-[#1c3c33] hover:border-[#2F6B4F] transition-colors">
+                        {t('Reports', 'رپورٹس')}
+                    </Link>
+                </div>
+            </div>
 
-                {/* Stats Cards */}
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <SummaryCard 
-                        title={t('Total Students', 'کل طلبہ')} 
-                        value={stats.totalStudents.toString()} 
-                        sub={stats.monthlyGrowth > 0 ? t(`+${stats.monthlyGrowth} this month`, `اس ماہ +${stats.monthlyGrowth}`) : t('No growth', 'کوئی اضافہ نہیں')} 
-                        icon="👥" 
-                        tone="bg-[#E5F4EC] text-[#2F6B4F]" 
-                    />
-                    <SummaryCard 
-                        title={t('Active Staff', 'فعال عملہ')} 
-                        value={stats.totalStaff.toString()} 
-                        sub={stats.totalStaff > 0 ? t('All verified', 'سب تصدیق شدہ') : t('No staff', 'کوئی عملہ نہیں')} 
-                        icon="👨‍🏫" 
-                        tone="bg-[#FFF3E0] text-[#F57C00]" 
-                    />
-                    <SummaryCard 
-                        title={t('Overall Attendance', 'مجموعی حاضری')} 
-                        value={`${stats.overallAttendance}%`} 
-                        sub={stats.overallAttendance >= 90 ? t('Excellent', 'بہترین') : stats.overallAttendance >= 75 ? t('Good', 'اچھا') : t('Needs improvement', 'بہتری ضروری')} 
-                        icon="📊" 
-                        tone="bg-[#F0F4F8] text-[#00897B]" 
-                    />
-                    <SummaryCard 
-                        title={t('Classes Running', 'جاری کلاسیں')} 
-                        value={stats.classesRunning.toString()} 
-                        sub={t('Total', 'کل')} 
-                        icon="🏫" 
-                        tone="bg-[#F3E5F5] text-[#8E24AA]" 
-                    />
-                </section>
+            {/* ── Info banner ── */}
+            {message && (
+                <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <span className="text-lg">💡</span>
+                    <p className="text-sm font-medium text-amber-800">{message}</p>
+                </div>
+            )}
 
-                {/* Main Content Grid */}
-                <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-                    {/* Recent Progress Overview */}
-                    <div className="lg:col-span-2 rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm">
-                        <div className="mb-5 flex items-center justify-between gap-3">
-                            <div>
-                                <h2 className="text-xl font-black tracking-tight text-[#1c3c33]">
-                                    {t('Recent Progress', 'حالیہ پیشرفت')}
-                                </h2>
-                                <p className="mt-1 text-xs font-medium text-[#1c3c33]/60">
-                                    {t('Latest student activities', 'طلبہ کی حالیہ سرگرمیاں')}
-                                </p>
-                            </div>
-                            <Link href="/progress?role=admin" className="text-xs font-bold text-[#2F6B4F] hover:underline">
-                                {t('View All', 'سب دیکھیں')}
-                            </Link>
-                        </div>
-                        <div className="space-y-3">
-                            {recentProgress.length > 0 ? (
-                                recentProgress.slice(0, 4).map((progress, index) => (
-                                    <div key={index} className="rounded-xl border border-[#d0d8cf]/50 bg-[#FDFBF7] p-4">
-                                        <div className="mb-3 flex items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-bold text-[#1c3c33]">{progress.studentName}</p>
-                                                <p className="text-xs font-medium text-[#1c3c33]/60">
-                                                    {t('Teacher', 'استاد')}: {progress.teacherName}
-                                                </p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
-                                                    progress.attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
-                                                    progress.attendanceStatus === 'absent' ? 'bg-red-100 text-red-800' :
-                                                    progress.attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-blue-100 text-blue-800'
-                                                }`}>
-                                                    {progress.attendanceStatus === 'present' ? t('Present', 'حاضر') :
-                                                     progress.attendanceStatus === 'absent' ? t('Absent', 'غائب') :
-                                                     progress.attendanceStatus === 'late' ? t('Late', 'دیر') :
-                                                     t('Excused', 'معذور')}
-                                                </span>
-                                            </div>
+            {/* ── Stat cards ── */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label={t('Total Students', 'کل طلبہ')}       value={stats.totalStudents}           icon="🎓" accent="#2F6B4F" bg="bg-[#E8F5EE]"
+                    badge={stats.monthlyGrowth > 0 ? `+${stats.monthlyGrowth}%` : undefined} />
+                <StatCard label={t('Active Staff', 'فعال عملہ')}        value={stats.totalStaff}              icon="👨‍🏫" accent="#1565C0" bg="bg-[#E3F2FD]" />
+                <StatCard label={t('Attendance Today', 'آج کی حاضری')} value={`${stats.overallAttendance}%`} icon="📅"  accent="#00897B" bg="bg-[#E0F2F1]"
+                    badge={stats.overallAttendance >= 90 ? t('Excellent','بہترین') : stats.overallAttendance >= 75 ? t('Good','اچھا') : stats.overallAttendance > 0 ? t('Low','کم') : undefined} />
+                <StatCard label={t('Classes Running', 'جاری کلاسیں')}  value={stats.classesRunning}          icon="📚"  accent="#6A1B9A" bg="bg-[#F3E5F5]" />
+            </div>
+
+            {/* ── Main 2-col grid ── */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+                {/* LEFT — 2 cols wide */}
+                <div className="lg:col-span-2 space-y-5">
+
+                    {/* Recent Student Progress */}
+                    <Card
+                        title={t('Student Recent Progress', 'طلبہ کی حالیہ پیشرفت')}
+                        sub={t('Latest learning entries', 'حالیہ تعلیمی سرگرمیاں')}
+                        action={{ label: t('See all →', 'سب دیکھیں'), href: '/progress?role=admin' }}
+                    >
+                        {recentProgress.length > 0 ? (
+                            <div className="divide-y divide-[#1c3c33]/5">
+                                {recentProgress.slice(0, 6).map((p, i) => (
+                                    <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-[#FAFAF8] transition-colors">
+                                        <div className="w-8 h-8 rounded-xl bg-[#E8F5EE] flex items-center justify-center text-xs font-black text-[#2F6B4F] shrink-0">
+                                            {p.studentName.charAt(0).toUpperCase()}
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium text-[#2F6B4F] capitalize">
-                                                {progress.learningType} - {new Date(progress.date).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        {progress.teacherRemarks && (
-                                            <p className="mt-2 text-xs text-[#1c3c33]/70">{progress.teacherRemarks}</p>
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center py-8">
-                                    <div className="text-4xl mb-2">📚</div>
-                                    <p className="text-sm text-[#1c3c33]/60">
-                                        {t('No recent progress entries found', 'کوئی حالیہ پیشرفت کی انٹری نہیں ملی')}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Join Requests Widget */}
-                    <JoinRequestsWidget />
-                </section>
-
-                {/* Second Row - Staff Overview */}
-                <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-                    {/* Staff Overview */}
-                    <div className="lg:col-span-1 rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm">
-                        <div className="mb-5">
-                            <h2 className="text-xl font-black tracking-tight text-[#1c3c33]">
-                                {t('Staff Overview', 'عملے کا جائزہ')}
-                            </h2>
-                            <p className="mt-1 text-xs font-medium text-[#1c3c33]/60">
-                                {t('Team members', 'ٹیم ممبرز')}
-                            </p>
-                        </div>
-                        <div className="space-y-3">
-                            {staffOverview.length > 0 ? (
-                                staffOverview.map((staff, index) => (
-                                    <div key={index} className="flex items-center justify-between rounded-xl border border-[#d0d8cf]/50 bg-[#FDFBF7] p-4">
-                                        <div>
-                                            <p className="text-sm font-bold text-[#1c3c33]">{staff.name}</p>
-                                            <p className="text-xs font-medium text-[#1c3c33]/60">
-                                                {staff.role === 'teacher' ? t('Teacher', 'استاد') : 
-                                                 staff.role === 'institute_admin' ? t('Admin', 'منتظم') : 
-                                                 staff.role}
-                                                {staff.specialization && ` - ${staff.specialization}`}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-[#1c3c33] truncate">{p.studentName}</p>
+                                            <p className="text-xs text-[#1c3c33]/40 capitalize">
+                                                {p.learningType} · {new Date(p.date).toLocaleDateString()}
                                             </p>
                                         </div>
-                                        <span className="text-sm font-bold text-[#2F6B4F]">
-                                            {staff.studentCount > 0 ? staff.studentCount : '-'}
+                                        <StatusPill status={p.attendanceStatus} t={t} />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <EmptyState icon="📖" msg={t('No progress entries yet. Add students and mark daily progress.', 'ابھی کوئی پیشرفت نہیں۔ طلبہ شامل کریں۔')} />
+                        )}
+                    </Card>
+
+                    {/* Staff Overview */}
+                    <Card
+                        title={t('Staff Overview', 'عملے کا جائزہ')}
+                        sub={t('All staff members in your institute', 'ادارے کے تمام عملہ')}
+                        action={{ label: t('Manage →', 'منظم کریں'), href: '/staff?role=admin' }}
+                    >
+                        {staffOverview.length > 0 ? (
+                            <div className="divide-y divide-[#1c3c33]/5">
+                                {staffOverview.map((s, i) => (
+                                    <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-[#FAFAF8] transition-colors">
+                                        <div className="w-8 h-8 rounded-xl bg-[#E3F2FD] flex items-center justify-center text-xs font-black text-[#1565C0] shrink-0">
+                                            {s.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-[#1c3c33] truncate">{s.name}</p>
+                                            <p className="text-xs text-[#1c3c33]/40">
+                                                {s.role === 'institute_admin' ? t('Admin', 'منتظم') : t('Teacher', 'استاد')}
+                                                {s.specialization ? ` · ${s.specialization}` : ''}
+                                            </p>
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                                            s.role === 'institute_admin'
+                                                ? 'bg-[#FFF3E0] text-[#E65100]'
+                                                : 'bg-[#E8F5EE] text-[#2F6B4F]'
+                                        }`}>
+                                            {s.role === 'institute_admin' ? t('Admin', 'ایڈمن') : t('Teacher', 'استاد')}
                                         </span>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="text-center py-8">
-                                    <div className="text-4xl mb-2">👨‍🏫</div>
-                                    <p className="text-sm text-[#1c3c33]/60">
-                                        {t('No staff members found', 'کوئی عملہ نہیں ملا')}
-                                    </p>
+                                ))}
+                            </div>
+                        ) : (
+                            <EmptyState icon="👨‍🏫" msg={t('No staff added yet. Add teachers to get started.', 'ابھی کوئی عملہ نہیں۔')} />
+                        )}
+                    </Card>
+                </div>
+
+                {/* RIGHT — 1 col */}
+                <div className="space-y-5">
+
+                    {/* Join Requests */}
+                    <JoinRequestsWidget />
+
+                    {/* Institute Summary */}
+                    <div className="rounded-2xl bg-gradient-to-br from-[#1c3c33] to-[#2F6B4F] p-5 text-white shadow-lg">
+                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-4">
+                            {t('Institute Summary', 'ادارے کا خلاصہ')}
+                        </p>
+                        <div className="space-y-3">
+                            {[
+                                { label: t('Students', 'طلبہ'),    value: stats.totalStudents,           icon: '🎓' },
+                                { label: t('Staff', 'عملہ'),       value: stats.totalStaff,              icon: '👨‍🏫' },
+                                { label: t('Classes', 'کلاسیں'),   value: stats.classesRunning,          icon: '📚' },
+                                { label: t('Attendance', 'حاضری'), value: `${stats.overallAttendance}%`, icon: '📅' },
+                            ].map(row => (
+                                <div key={row.label} className="flex items-center justify-between">
+                                    <span className="text-xs text-white/60 flex items-center gap-1.5">
+                                        <span>{row.icon}</span>{row.label}
+                                    </span>
+                                    <span className="text-sm font-black text-white">{row.value}</span>
                                 </div>
-                            )}
+                            ))}
                         </div>
-                        <Link href="/staff?role=admin" className="mt-4 block w-full rounded-xl border border-[#d0d8cf] bg-[#FDFBF7] px-4 py-3 text-center text-xs font-bold text-[#1c3c33] hover:border-[#2F6B4F] hover:text-[#2F6B4F] transition-colors">
-                            {t('Manage Staff', 'عملہ منظم کریں')}
+                        <Link href="/reports?role=admin"
+                            className="mt-5 block w-full rounded-xl bg-white/15 hover:bg-white/25 transition-colors py-2 text-center text-xs font-bold text-white">
+                            {t('Full Report →', 'مکمل رپورٹ ←')}
                         </Link>
                     </div>
 
-                    {/* Placeholder for future widgets */}
-                    <div className="lg:col-span-2"></div>
-                </section>
-
-                {/* Detailed Progress Table */}
-                {recentProgress.length > 0 && (
-                    <section className="rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm">
-                        <div className="mb-5">
-                            <h2 className="text-xl font-black tracking-tight text-[#1c3c33]">
-                                {t('Detailed Progress Report', 'تفصیلی پیشرفت رپورٹ')}
-                            </h2>
-                            <p className="mt-1 text-xs font-medium text-[#1c3c33]/60">
-                                {t('Complete performance overview', 'مکمل کارکردگی کا جائزہ')}
-                            </p>
+                    {/* Shortcuts */}
+                    <div className="rounded-2xl bg-white border border-[#1c3c33]/6 shadow-sm p-4">
+                        <p className="text-xs font-black text-[#1c3c33]/50 uppercase tracking-widest mb-3">
+                            {t('Shortcuts', 'شارٹ کٹس')}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { href: '/students/new?role=admin',  icon: '👤', label: t('Add Student', 'طالب علم') },
+                                { href: '/staff/new?role=admin',     icon: '👨‍🏫', label: t('Add Staff', 'عملہ') },
+                                { href: '/classes/new?role=admin',   icon: '📚', label: t('New Class', 'کلاس') },
+                                { href: '/attendance?role=admin',    icon: '📅', label: t('Attendance', 'حاضری') },
+                                { href: '/exams/new?role=admin',     icon: '📝', label: t('New Exam', 'امتحان') },
+                                { href: '/progress?role=admin',      icon: '📖', label: t('Progress', 'پیشرفت') },
+                            ].map(a => (
+                                <Link key={a.href} href={a.href}
+                                    className="flex flex-col items-center gap-1 rounded-xl border border-[#d0d8cf]/60 bg-[#FAFAF8] px-2 py-3 text-center hover:border-[#2F6B4F]/40 hover:bg-[#E8F5EE] transition-colors group">
+                                    <span className="text-lg group-hover:scale-110 transition-transform">{a.icon}</span>
+                                    <span className="text-[10px] font-semibold text-[#1c3c33]/70 leading-tight">{a.label}</span>
+                                </Link>
+                            ))}
                         </div>
-                        <div className="w-full overflow-x-auto">
-                            <table className="w-full min-w-[600px] text-left">
-                                <thead>
-                                    <tr className="border-b border-[#1c3c33]/10">
-                                        <th className="pb-3 text-xs font-bold text-[#1c3c33]/70">{t('Student', 'طالب علم')}</th>
-                                        <th className="pb-3 text-xs font-bold text-[#1c3c33]/70">{t('Teacher', 'استاد')}</th>
-                                        <th className="pb-3 text-xs font-bold text-[#1c3c33]/70">{t('Type', 'قسم')}</th>
-                                        <th className="pb-3 text-xs font-bold text-[#1c3c33]/70">{t('Status', 'حالت')}</th>
-                                        <th className="pb-3 text-xs font-bold text-[#1c3c33]/70">{t('Date', 'تاریخ')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-[#1c3c33]/5">
-                                    {recentProgress.map((progress, index) => (
-                                        <tr key={index} className="hover:bg-[#FDFBF7] transition-colors">
-                                            <td className="py-3 text-sm font-bold text-[#1c3c33]">{progress.studentName}</td>
-                                            <td className="py-3 text-xs font-medium text-[#1c3c33]/70">{progress.teacherName}</td>
-                                            <td className="py-3 text-xs font-medium text-[#1c3c33]/70 capitalize">{progress.learningType}</td>
-                                            <td className="py-3">
-                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
-                                                    progress.attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
-                                                    progress.attendanceStatus === 'absent' ? 'bg-red-100 text-red-800' :
-                                                    progress.attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-blue-100 text-blue-800'
-                                                }`}>
-                                                    {progress.attendanceStatus === 'present' ? t('Present', 'حاضر') :
-                                                     progress.attendanceStatus === 'absent' ? t('Absent', 'غائب') :
-                                                     progress.attendanceStatus === 'late' ? t('Late', 'دیر') :
-                                                     t('Excused', 'معذور')}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 text-xs text-[#1c3c33]/70">{new Date(progress.date).toLocaleDateString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                )}
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
 
-function SummaryCard({
-    title,
-    value,
-    sub,
-    icon,
-    tone,
-}: {
-    title: string;
-    value: string;
-    sub: string;
-    icon: string;
-    tone: string;
+/* ── Reusable sub-components ── */
+
+function Card({ title, sub, action, children }: {
+    title: string; sub: string;
+    action?: { label: string; href: string };
+    children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs font-bold text-[#1c3c33]/70">{title}</p>
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg text-lg ${tone}`}>{icon}</div>
+        <div className="rounded-2xl bg-white border border-[#1c3c33]/6 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#1c3c33]/5">
+                <div>
+                    <h2 className="text-sm font-black text-[#1c3c33]">{title}</h2>
+                    <p className="text-[11px] text-[#1c3c33]/40 mt-0.5">{sub}</p>
+                </div>
+                {action && (
+                    <Link href={action.href} className="text-[11px] font-bold text-[#2F6B4F] hover:underline shrink-0">
+                        {action.label}
+                    </Link>
+                )}
             </div>
-            <div className="flex items-end justify-between gap-2">
-                <p className="text-2xl font-black tracking-tight text-[#1c3c33]">{value}</p>
-                <span className="rounded-md bg-[#1c3c33]/5 px-2 py-1 text-xs font-medium text-[#1c3c33]/60">{sub}</span>
+            {children}
+        </div>
+    );
+}
+
+function StatCard({ label, value, badge, icon, accent, bg }: {
+    label: string; value: string | number; badge?: string;
+    icon: string; accent: string; bg: string;
+}) {
+    return (
+        <div className="rounded-2xl bg-white border border-[#1c3c33]/6 shadow-sm p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+                <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center text-base`}>{icon}</div>
+                {badge && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8F5EE] text-[#2F6B4F]">{badge}</span>
+                )}
             </div>
+            <p className="text-2xl font-black" style={{ color: accent }}>{value}</p>
+            <p className="text-[11px] font-semibold text-[#1c3c33]/45 mt-0.5">{label}</p>
+        </div>
+    );
+}
+
+function StatusPill({ status, t }: { status: string; t: (en: string, ur: string) => string }) {
+    const map: Record<string, { bg: string; text: string; en: string; ur: string }> = {
+        present: { bg: 'bg-green-100', text: 'text-green-700', en: 'Present', ur: 'حاضر' },
+        absent:  { bg: 'bg-red-100',   text: 'text-red-700',   en: 'Absent',  ur: 'غائب' },
+        late:    { bg: 'bg-amber-100', text: 'text-amber-700', en: 'Late',    ur: 'دیر'  },
+        excused: { bg: 'bg-blue-100',  text: 'text-blue-700',  en: 'Excused', ur: 'معذور'},
+    };
+    const s = map[status] ?? map['excused'];
+    return (
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${s.bg} ${s.text}`}>
+            {t(s.en, s.ur)}
+        </span>
+    );
+}
+
+function EmptyState({ icon, msg }: { icon: string; msg: string }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-8 gap-2 text-[#1c3c33]/35 px-5 text-center">
+            <span className="text-2xl">{icon}</span>
+            <p className="text-xs font-medium leading-relaxed">{msg}</p>
         </div>
     );
 }

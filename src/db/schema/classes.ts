@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, date, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { teachers, students } from './users';
@@ -6,10 +6,10 @@ import { teachers, students } from './users';
 export const classes = pgTable('classes', {
     id: uuid('id').defaultRandom().primaryKey(),
     organizationId: uuid('organization_id').notNull().references(() => organizations.id),
-    name: varchar('name', { length: 255 }).notNull(),
+    name: text('name').notNull(),
     description: text('description'),
     teacherId: uuid('teacher_id').references(() => teachers.id),
-    schedule: jsonb('schedule'), // For days/times
+    schedule: jsonb('schedule'),
     startDate: date('start_date'),
     endDate: date('end_date'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -21,7 +21,7 @@ export const classEnrollments = pgTable('class_enrollments', {
     classId: uuid('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
     studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
     enrollmentDate: timestamp('enrollment_date').defaultNow().notNull(),
-    status: varchar('status', { length: 50 }).default('active'), // active, completed, dropped
+    status: text('status').default('active'),
 });
 
 // Relations
