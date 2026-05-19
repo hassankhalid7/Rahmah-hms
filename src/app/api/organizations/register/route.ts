@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         const existingOrg = await db
             .select()
             .from(organizations)
-            .where(sql`${organizations.slug} = ${slug}::text`)
+            .where(eq(organizations.slug, slug))
             .limit(1);
 
         if (existingOrg.length > 0) {
