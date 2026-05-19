@@ -23,7 +23,7 @@ export const dailyProgress = pgTable('daily_progress', {
     hifzSabqi: text('hifz_sabqi'),
     hifzManzil: text('hifz_manzil'),
     hifzAyatMistakes: jsonb('hifz_ayat_mistakes').$type<Array<{ ayah: string; mistakes: number }>>(),
-    tenantId: uuid('tenant_id').notNull().references(() => organizations.id),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

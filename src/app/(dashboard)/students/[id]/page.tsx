@@ -51,6 +51,14 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
 
     if (!studentData) return notFound();
 
+    // Fetch class info
+    const enrollment = await db.query.classEnrollments.findFirst({
+        where: eq(classEnrollments.studentId, studentData.id),
+        with: {
+            class: true
+        }
+    });
+
     const metadata = studentData.metadata as Record<string, any> | null;
 
     const student = {
@@ -58,7 +66,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
         name: `${studentData.user.firstName} ${studentData.user.lastName}`,
         gender: metadata?.gender || 'N/A',
         studentId: studentData.studentNumber,
-        class: 'Not Assigned', // We need to fetch this from enrollments if we had it
+        class: enrollment?.class?.name || 'Not Assigned',
         admissionDate: studentData.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A',
         dateOfBirth: studentData.dateOfBirth ? new Date(studentData.dateOfBirth).toLocaleDateString() : 'N/A',
         address: metadata?.address || 'N/A',

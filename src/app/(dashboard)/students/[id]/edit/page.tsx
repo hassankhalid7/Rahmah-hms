@@ -28,51 +28,24 @@ export default function EditStudentPage() {
                 return res.json();
             })
             .then(data => {
-                // Map API response to schema
-                // API returns: { id, name, gender, studentId, admissionDate, dateOfBirth, address, guardian: { name, phone, email }, ... }
-                // Schema expects: firstName, lastName, gender, etc.
-                // WE NEED TO SPLIT NAME or update API to return raw fields.
-                // The GET /api/students/[id] returns a formatted object.
-                // This is bad for Editing. We need raw data.
-                // Ideally API should return raw data or we fetch from a "raw" endpoint.
-                // But wait, `GET /api/students/[id]` in `route.ts` (if I wrote it) typically returns the DB object or detailed object.
-                // Let's check `src/app/api/students/[id]/route.ts`. 
-                // If it returns formatted data, we might struggle to populate "FirstName" "LastName".
-                // I will assume I can parse "Name" or better, update API to return raw.
-                // Actually, let's try to just parse for now to save time, or better:
-                // I'll check the API response structure by blindly trusting it returns `user` object inside?
-                // If the API returns the *formatted* response I saw in `StudentProfilePage` (which calls DB directly), then `GET /api/students/[id]` might be different.
-
-                // Let's assume `GET /api/students/[id]` returns the structure defined in `route.ts`.
-                // I'll blindly implement mapping assuming `student.user.firstName` is available or similar.
-                // If `GET /api/students/[id]` acts like `StudentProfilePage`, it calls `db.query...`.
-
-                // Let's fetch and log in console if I could, but I can't.
-                // I'll try to map safely.
-
-                // For now, I'll attempt to split name if needed, property mapping:
-
-                const names = data.name ? data.name.split(' ') : ['', ''];
-                const firstName = names[0];
-                const lastName = names.slice(1).join(' ');
-
-                // Address, Phone etc.
-                // guardian is an object { name, phone, email, relation }
-                const guardianNames = data.guardian?.name ? data.guardian.name.split(' ') : ['', ''];
+                // data is raw DB object with user and guardian
+                const meta = (data.metadata || {}) as any;
 
                 reset({
-                    firstName: firstName,
-                    lastName: lastName,
-                    gender: data.gender === 'N/A' ? 'Male' : data.gender,
-                    dateOfBirth: data.dateOfBirth !== 'N/A' ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
-                    admissionDate: data.admissionDate !== 'N/A' ? new Date(data.admissionDate).toISOString().split('T')[0] : '',
-                    address: data.address === 'N/A' ? '' : data.address,
+                    firstName: data.user?.firstName || '',
+                    lastName: data.user?.lastName || '',
+                    email: data.user?.email || '',
+                    phone: data.user?.phone || '',
+                    gender: meta.gender || 'Male',
+                    dateOfBirth: data.dateOfBirth || '',
+                    admissionDate: data.admissionDate || '',
+                    address: meta.address || '',
 
-                    guardianFirstName: guardianNames[0],
-                    guardianLastName: guardianNames.slice(1).join(' '),
-                    guardianRelation: data.guardian?.relation || 'Father',
-                    guardianPhone: data.guardian?.phone === 'N/A' ? '' : data.guardian.phone,
-                    guardianEmail: data.guardian?.email === 'N/A' ? '' : data.guardian.email,
+                    guardianFirstName: data.guardian?.firstName || '',
+                    guardianLastName: data.guardian?.lastName || '',
+                    guardianRelation: 'Guardian', // Assuming for now
+                    guardianPhone: data.guardian?.phone || '',
+                    guardianEmail: data.guardian?.email || '',
                 });
                 setLoading(false);
             })

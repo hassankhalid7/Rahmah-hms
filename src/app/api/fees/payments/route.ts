@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { db } from '@/db';
+import { payments, invoices, students, users } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { getAuth } from '@/lib/auth';
 
 // POST /api/fees/payments - Record a payment
 export async function POST(request: NextRequest) {
   try {
+    const { userId: currentUserId, orgId } = await getAuth();
+    if (!orgId) return new NextResponse('Unauthorized', { status: 401 });
+
     const body = await request.json();
     const {
-      institute_id,
       invoice_id,
       student_id,
       amount,
@@ -14,127 +19,99 @@ export async function POST(request: NextRequest) {
       payment_date,
       reference_number,
       notes,
-      received_by,
     } = body;
 
-    if (!institute_id || !invoice_id || !student_id || !amount) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!invoice_id || !student_id || !amount) {
+      return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    // Record payment
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        institute_id,
-        invoice_id,
-        student_id,
-        amount,
-        payment_method,
-        payment_date: payment_date || new Date().toISOString().split('T')[0],
-        reference_number,
-        notes,
-        received_by,
-      })
-      .select()
-      .single();
+    // Record payment in transaction
+    const result = await db.transaction(async (tx) => {
+      const [payment] = await tx
+        .insert(payments)
+        .values({
+          organizationId: orgId,
+          invoiceId: invoice_id,
+          studentId: student_id,
+          amount: String(amount),
+          paymentMethod: payment_method,
+          paymentDate: payment_date ? new Date(payment_date) : new Date(),
+          referenceNumber: reference_number,
+          notes,
+          receivedBy: currentUserId,
+        })
+        .returning();
 
-    if (paymentError) {
-      return NextResponse.json(
-        { error: 'Failed to record payment', details: paymentError.message },
-        { status: 500 }
-      );
-    }
+      // Update invoice
+      const invoice = await tx.query.invoices.findFirst({
+        where: eq(invoices.id, invoice_id)
+      });
 
-    // Update invoice paid amount and status
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('paid_amount, final_amount')
-      .eq('id', invoice_id)
-      .single();
+      if (invoice) {
+        const newPaidAmount = Number(invoice.paidAmount || 0) + Number(amount);
+        let newStatus = 'partial';
+        if (newPaidAmount >= Number(invoice.finalAmount)) {
+          newStatus = 'paid';
+        }
 
-    if (invoice) {
-      const newPaidAmount = (invoice.paid_amount || 0) + amount;
-      let newStatus = 'partial';
-      
-      if (newPaidAmount >= invoice.final_amount) {
-        newStatus = 'paid';
+        await tx.update(invoices)
+          .set({
+            paidAmount: String(newPaidAmount),
+            status: newStatus,
+            updatedAt: new Date(),
+          })
+          .where(eq(invoices.id, invoice_id));
       }
 
-      await supabase
-        .from('invoices')
-        .update({
-          paid_amount: newPaidAmount,
-          status: newStatus,
-        })
-        .eq('id', invoice_id);
-    }
+      return payment;
+    });
 
-    return NextResponse.json({
-      message: 'Payment recorded successfully',
-      payment,
-    }, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
-    console.error('Record payment error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('[PAYMENTS_POST]', error);
+    return new NextResponse('Internal Error', { status: 500 });
   }
 }
 
 // GET /api/fees/payments - Get payment history
 export async function GET(request: NextRequest) {
   try {
+    const { orgId } = await getAuth();
+    if (!orgId) return new NextResponse('Unauthorized', { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    
-    const institute_id = searchParams.get('institute_id');
     const student_id = searchParams.get('student_id');
-    const start_date = searchParams.get('start_date');
-    const end_date = searchParams.get('end_date');
+    const invoice_id = searchParams.get('invoice_id');
     
-    if (!institute_id) {
-      return NextResponse.json(
-        { error: 'institute_id is required' },
-        { status: 400 }
-      );
-    }
+    const data = await db
+      .select({
+        id: payments.id,
+        amount: payments.amount,
+        paymentMethod: payments.paymentMethod,
+        paymentDate: payments.paymentDate,
+        referenceNumber: payments.referenceNumber,
+        invoiceNumber: invoices.invoiceNumber,
+        studentName: users.firstName,
+        studentLastName: users.lastName,
+      })
+      .from(payments)
+      .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
+      .innerJoin(students, eq(payments.studentId, students.id))
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(
+        and(
+          eq(payments.organizationId, orgId),
+          student_id ? eq(payments.studentId, student_id) : undefined,
+          invoice_id ? eq(payments.invoiceId, invoice_id) : undefined,
+        )
+      )
+      .orderBy(desc(payments.paymentDate));
 
-    let query = supabase
-      .from('payments')
-      .select(`
-        *,
-        student:student_id(first_name, last_name, registration_number),
-        invoice:invoice_id(invoice_number, month, year),
-        received_by_profile:received_by(first_name, last_name)
-      `)
-      .eq('institute_id', institute_id);
-
-    if (student_id) query = query.eq('student_id', student_id);
-    if (start_date) query = query.gte('payment_date', start_date);
-    if (end_date) query = query.lte('payment_date', end_date);
-
-    query = query.order('payment_date', { ascending: false });
-
-    const { data: payments, error } = await query;
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch payments', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ payments: payments || [] });
+    return NextResponse.json({ payments: data });
 
   } catch (error) {
-    console.error('Get payments error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('[PAYMENTS_GET]', error);
+    return new NextResponse('Internal Error', { status: 500 });
   }
 }

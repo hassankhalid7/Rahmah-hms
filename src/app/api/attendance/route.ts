@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const student_id = searchParams.get('student_id');
+    const class_id = searchParams.get('class_id');
     const date = searchParams.get('date');
     const start_date = searchParams.get('start_date');
     const end_date = searchParams.get('end_date');
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
             and(
                 eq(attendance.organizationId, orgId),
                 student_id ? eq(attendance.userId, student_id) : undefined,
+                class_id ? eq(attendance.classId, class_id) : undefined,
                 date ? eq(attendance.date, date) : undefined,
                 start_date ? gte(attendance.date, start_date) : undefined,
                 end_date ? lte(attendance.date, end_date) : undefined
@@ -52,16 +54,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { date, student_id, status, remarks } = body;
+    const { date, student_id, class_id, status, remarks } = body;
 
-    const [record] = await db.insert(attendance).values({
-        organizationId: orgId,
-        userId: student_id,
-        date,
-        status,
-        remarks,
-        markedBy: currentUserId
-    }).returning();
+    const [record] = await db
+        .insert(attendance)
+        .values({
+            organizationId: orgId,
+            userId: student_id,
+            classId: class_id || null,
+            date,
+            status,
+            remarks: remarks || null,
+            markedBy: currentUserId,
+            updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+            target: [attendance.organizationId, attendance.userId, attendance.date, attendance.classId],
+            set: {
+                status,
+                remarks: remarks || null,
+                markedBy: currentUserId,
+                updatedAt: new Date(),
+            },
+        })
+        .returning();
 
     return NextResponse.json(record);
 

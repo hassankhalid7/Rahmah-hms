@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
                 .from(dailyProgress)
                 .innerJoin(students, eq(dailyProgress.studentId, students.id))
                 .innerJoin(users, eq(students.userId, users.id))
-                .where(eq(dailyProgress.tenantId, orgId))
+                .where(eq(dailyProgress.organizationId, orgId))
                 .orderBy(desc(dailyProgress.createdAt))
                 .limit(5)
                 .catch(() => []),

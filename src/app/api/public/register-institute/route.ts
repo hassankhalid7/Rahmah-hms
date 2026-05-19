@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { organizations } from '@/db/schema/organizations';
 import { users } from '@/db/schema/users';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,17 +20,22 @@ export async function POST(req: NextRequest) {
         }
 
         // Create slug from name
-        const slug = name.toLowerCase()
+        const nameStr = String(name || '');
+        const slug = nameStr.toLowerCase()
             .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
             .replace(/\s+/g, '-') // Replace spaces with hyphens
             .replace(/-+/g, '-') // Replace multiple hyphens with single
             .trim();
 
+        if (!slug) {
+            return NextResponse.json({ message: 'Invalid institute name' }, { status: 400 });
+        }
+
         // Check if slug already exists
         const existingOrg = await db
             .select()
             .from(organizations)
-            .where(eq(organizations.slug, slug))
+            .where(sql`${organizations.slug} = ${slug}::text`)
             .limit(1);
 
         if (existingOrg.length > 0) {

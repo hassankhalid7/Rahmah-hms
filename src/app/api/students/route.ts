@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
     try {
         const { userId: currentUserId, orgId } = await getAuth();
 
+        console.log('[STUDENTS_POST] Adding student for orgId:', orgId);
+
         if (!currentUserId || !orgId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
@@ -137,8 +139,8 @@ export async function POST(req: NextRequest) {
                 userId: newStudentUser.id,
                 organizationId: orgId,
                 guardianId: guardianId,
-                dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
-                admissionDate: admissionDate ? new Date(admissionDate).toISOString() : new Date().toISOString(),
+                dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : null,
+                admissionDate: admissionDate ? new Date(admissionDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 // Generate student number?
                 studentNumber: `STU-${Date.now().toString().slice(-6)}`,
                 metadata: { gender, address },

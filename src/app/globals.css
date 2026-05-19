@@ -80,3 +80,48 @@ video,
 canvas {
   max-width: 100%;
 }
+
+/* Splash Screen Animations */
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes lineSlide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes bounceDot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-splash-fade-in {
+  animation: splashFadeIn 1s ease-out forwards;
+}
+
+.animate-splash-fade-out {
+  animation: splashFadeOut 0.7s ease-in forwards;
+  animation-delay: 2.5s;
+}
+
+.animate-line-slide {
+  animation: lineSlide 1s ease-out forwards;
+  animation-delay: 0.5s;
+}
+
+.animate-fade-in-delayed {
+  animation: splashFadeIn 1s ease-out forwards;
+  animation-delay: 1s;
+  opacity: 0;
+}
+
+.animate-dot-bounce {
+  animation: bounceDot 1s infinite;
+}

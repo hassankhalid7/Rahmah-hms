@@ -1,4 +1,22 @@
+import { useEffect, useState } from 'react';
+
 export default function TeacherDashboard({ user }: { user: any }) {
+    const [data, setData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('/api/dashboard/teacher')
+            .then(r => r.json())
+            .then(setData)
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <div className="p-8 text-center text-[#1c3c33]/40 font-bold text-sm">Loading Dashboard...</div>;
+
+    const stats = data?.stats || { totalStudents: 0, todayAttendance: '0%', pendingProgress: 0 };
+    const teacherClasses = data?.classes || [];
+
     return (
         <div className="w-full text-[#1c3c33] animate-in fade-in duration-500">
             <div className="space-y-6">
@@ -10,7 +28,7 @@ export default function TeacherDashboard({ user }: { user: any }) {
                             <h1 className="text-2xl sm:text-3xl font-black text-[#1c3c33] tracking-tight">Teacher Dashboard</h1>
                         </div>
                         <p className="text-sm font-bold text-[#2F6B4F]">Faizan e Ashab e Sufa</p>
-                        <p className="text-sm text-[#1c3c33]/65">Welcome back, {user?.firstName || 'Teacher'}. You have 3 active classes today.</p>
+                        <p className="text-sm text-[#1c3c33]/65">Welcome back, {user?.firstName || 'Teacher'}. You have {teacherClasses.length} active classes.</p>
                     </div>
                     <div className="flex gap-3">
                         <button className="px-4 py-2.5 bg-white text-[#1c3c33] border border-[#d0d8cf] rounded-xl text-xs font-bold hover:border-[#2F6B4F] hover:text-[#2F6B4F] transition-colors shadow-sm">My Schedule</button>
@@ -20,9 +38,9 @@ export default function TeacherDashboard({ user }: { user: any }) {
 
                 {/* Main Stats Grid */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <StatCard title="Total Students" value="42" icon="👥" sub="Across all classes" color="bg-[#E5F4EC] text-[#2F6B4F]" />
-                    <StatCard title="Today's Attendance" value="98%" icon="📊" sub="Excellent" color="bg-[#FFF3E0] text-[#F57C00]" />
-                    <StatCard title="Pending Progress" value="18" icon="📝" sub="Logs needed today" color="bg-[#F0F4F8] text-[#00897B]" />
+                    <StatCard title="Total Students" value={String(stats.totalStudents)} icon="👥" sub="Across all classes" color="bg-[#E5F4EC] text-[#2F6B4F]" />
+                    <StatCard title="Today's Attendance" value={stats.todayAttendance} icon="📊" sub="Excellent" color="bg-[#FFF3E0] text-[#F57C00]" />
+                    <StatCard title="Pending Progress" value={String(stats.pendingProgress)} icon="📝" sub="Logs needed today" color="bg-[#F0F4F8] text-[#00897B]" />
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -35,9 +53,11 @@ export default function TeacherDashboard({ user }: { user: any }) {
                             </h2>
                         </div>
                         <div className="space-y-4">
-                            <ClassItem name="Hifz Halaqa A" students={15} time="08:00 AM - 12:00 PM" bg="bg-[#E5F4EC]" color="text-[#2F6B4F]" />
-                            <ClassItem name="Nazra Beginners" students={12} time="01:00 PM - 03:00 PM" bg="bg-[#FFF3E0]" color="text-[#F57C00]" />
-                            <ClassItem name="Qaida Juniors" students={15} time="03:30 PM - 05:30 PM" bg="bg-[#F0F4F8]" color="text-[#00897B]" />
+                            {teacherClasses.length > 0 ? teacherClasses.map((c: any) => (
+                                <ClassItem key={c.id} name={c.name} students={c.studentCount} time={c.time} bg="bg-[#E5F4EC]" color="text-[#2F6B4F]" />
+                            )) : (
+                                <p className="text-sm text-[#1c3c33]/40 font-bold py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">No classes assigned yet.</p>
+                            )}
                         </div>
                     </div>
 
@@ -102,12 +122,12 @@ function ClassItem({ name, students, time, bg, color }: { name: string; students
 
 function QuickTask({ icon, label, description, bg, color }: { icon: string; label: string; description: string; bg: string; color: string }) {
     return (
-        <button className="p-4 text-left bg-white border border-[#d0d8cf]/50 rounded-xl hover:border-[#2F6B4F]/30 hover:shadow-lg transition-all group active:scale-95 flex flex-col items-start focus:outline-none focus:ring-2 focus:ring-[#2F6B4F]/20">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg mb-3 transition-transform group-hover:scale-110 ${bg} ${color}`}>
+        <div className="p-4 bg-white border border-[#d0d8cf]/40 rounded-xl hover:border-[#2F6B4F]/20 hover:shadow-sm transition-all group cursor-pointer">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm mb-3 ${bg} ${color} group-hover:scale-110 transition-transform`}>
                 {icon}
             </div>
-            <h3 className="font-bold text-[#1c3c33] text-sm group-hover:text-[#2F6B4F] tracking-tight">{label}</h3>
-            <p className="text-xs font-medium text-[#1c3c33]/60 mt-1 leading-tight">{description}</p>
-        </button>
+            <h3 className="text-xs font-black text-[#1c3c33] mb-1">{label}</h3>
+            <p className="text-[10px] text-[#1c3c33]/50 font-medium leading-tight">{description}</p>
+        </div>
     );
 }

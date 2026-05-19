@@ -1,121 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { db } from '@/db';
+import { exams, examResults, students, users } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { getAuth } from '@/lib/auth';
 import { isDemoMode } from '@/lib/auth-constants';
 
 // GET /api/exams - List exams
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
+export async function GET(req: NextRequest) {
+    try {
+        const { userId, orgId } = await getAuth();
 
-    const institute_id = searchParams.get('institute_id');
-    const class_id = searchParams.get('class_id');
-    const exam_type = searchParams.get('exam_type');
+        if (isDemoMode) {
+            return NextResponse.json({
+                exams: [
+                    { id: '1', name: 'Monthly Hifz Assessment', examType: 'Monthly', date: '2026-02-28', status: 'Scheduled' },
+                    { id: '2', name: 'Nazra Para 1-5 Final', examType: 'Final', date: '2026-03-15', status: 'Draft' },
+                ]
+            });
+        }
 
-    if (isDemoMode) {
-      return NextResponse.json({
-        exams: [
-          { id: '1', name: 'Monthly Hifz Assessment', type: 'Monthly', date: 'Feb 28, 2026', status: 'Scheduled', students: 45, class: { name: 'Halaqa Zaid' } },
-          { id: '2', name: 'Nazra Para 1-5 Final', type: 'Final', date: 'Mar 15, 2026', status: 'Draft', students: 28, class: { name: 'Halaqa Abu Bakr' } },
-          { id: '3', name: 'Qaida Completion Test', type: 'Certification', date: 'Feb 10, 2026', status: 'Completed', students: 12, class: { name: 'Noorani Group' } },
-        ]
-      });
+        if (!userId || !orgId) {
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
+        const searchParams = req.nextUrl.searchParams;
+        const examType = searchParams.get('examType');
+
+        const data = await db
+            .select()
+            .from(exams)
+            .where(
+                and(
+                    eq(exams.organizationId, orgId),
+                    examType ? eq(exams.examType, examType) : undefined
+                )
+            )
+            .orderBy(desc(exams.date));
+
+        return NextResponse.json({ exams: data });
+
+    } catch (error) {
+        console.error('[EXAMS_GET]', error);
+        return new NextResponse('Internal Error', { status: 500 });
     }
-
-    if (!institute_id) {
-      return NextResponse.json(
-        { error: 'institute_id is required' },
-        { status: 400 }
-      );
-    }
-
-    let query = supabase
-      .from('exams')
-      .select(`
-        *,
-        class:class_id(name),
-        marks!left(student_id, marks_obtained)
-      `)
-      .eq('institute_id', institute_id);
-
-    if (class_id) query = query.eq('class_id', class_id);
-    if (exam_type) query = query.eq('exam_type', exam_type);
-
-    query = query.order('exam_date', { ascending: false });
-
-    const { data: exams, error } = await query;
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch exams', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ exams: exams || [] });
-
-  } catch (error) {
-    console.error('Get exams error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
 }
 
 // POST /api/exams - Create new exam
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const {
-      institute_id,
-      class_id,
-      name,
-      exam_type,
-      subject,
-      total_marks,
-      passing_marks,
-      exam_date,
-    } = body;
+export async function POST(req: NextRequest) {
+    try {
+        const { userId, orgId } = await getAuth();
 
-    if (!institute_id || !name || !total_marks) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+        if (!userId || !orgId) {
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
+        const body = await req.json();
+        const { name, examType, date, syllabus, metadata } = body;
+
+        if (!name) {
+            return new NextResponse('Exam name is required', { status: 400 });
+        }
+
+        const [newExam] = await db
+            .insert(exams)
+            .values({
+                organizationId: orgId,
+                name,
+                examType,
+                date,
+                syllabus,
+                metadata: metadata || {},
+            })
+            .returning();
+
+        return NextResponse.json(newExam);
+
+    } catch (error) {
+        console.error('[EXAMS_POST]', error);
+        return new NextResponse('Internal Error', { status: 500 });
     }
-
-    const { data: exam, error } = await supabase
-      .from('exams')
-      .insert({
-        institute_id,
-        class_id,
-        name,
-        exam_type,
-        subject,
-        total_marks,
-        passing_marks,
-        exam_date,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to create exam', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      message: 'Exam created successfully',
-      exam,
-    }, { status: 201 });
-
-  } catch (error) {
-    console.error('Create exam error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
 }

@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema/users';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         let { email, password, role } = body;
 
-        console.log('Login attempt:', { email, role });
+        console.log('Login attempt:', { identifier: email, role });
 
         if (!email || !password) {
-            return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
+            return NextResponse.json({ message: 'Email/Phone and password are required' }, { status: 400 });
         }
 
         // Map UI role to DB role
         const dbRole = role === 'admin' ? 'institute_admin' : role;
 
-        // Find user by email and role
+        // Find user by email OR phone and role
         const users_list = await db
             .select({
                 id: users.id,
@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
             .from(users)
             .where(
                 and(
-                    eq(users.email, email),
+                    or(
+                        eq(users.email, email),
+                        eq(users.phone, email)
+                    ),
                     eq(users.role, dbRole as any)
                 )
             );
@@ -43,12 +46,15 @@ export async function POST(req: NextRequest) {
         const user = users_list[0];
 
         if (!user) {
-            console.log('User not found:', email, 'with role:', dbRole);
+            console.log('User not found with identifier:', email, 'and role:', dbRole);
             return NextResponse.json({ message: 'User not found' }, { status: 404 });
         }
 
+        console.log('User found:', { id: user.id, email: user.email, phone: user.phone });
+        console.log('Password comparison:', { provided: password, stored: user.password });
+
         // Check password (In production, use bcrypt.compare)
-        if (user.password !== password) {
+        if (String(user.password) !== String(password)) {
             console.log('Invalid password for user:', email);
             return NextResponse.json({ message: 'Invalid password' }, { status: 401 });
         }

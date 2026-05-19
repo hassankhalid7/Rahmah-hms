@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         if (dateTo) conditions.push(lte(dailyProgress.date, dateTo));
 
         // Filter by organization/tenant
-        conditions.push(eq(dailyProgress.tenantId, orgId));
+        conditions.push(eq(dailyProgress.organizationId, orgId));
 
         // Execute query with pagination
         const offset = (page - 1) * limit;
@@ -102,13 +102,13 @@ export async function POST(request: NextRequest) {
         const data = validationResult.data;
 
         const teacherId = data.teacherId || userId;
-        const tenantId = orgId;
+        const organizationId = orgId;
 
         // Prepare insert data based on learning type
         const insertData: any = {
             studentId: data.studentId,
             teacherId,
-            tenantId,
+            organizationId,
             date: data.date,
             learningType: data.learningType,
             attendanceStatus: data.attendanceStatus,

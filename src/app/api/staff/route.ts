@@ -26,24 +26,24 @@ export async function POST(req: NextRequest) {
             specialization, joiningDate, employeeNumber, gender
         } = validation.data;
 
+        // Map UI role to DB role
+        const dbRole = role === 'admin' ? 'institute_admin' : role;
+
         // Transaction to create user and teacher record
         const result = await db.transaction(async (tx) => {
             // 1. Create User
-            // Note: We are creating a user *without* a Clerk ID initially.
-            // They can "claim" this account later or we invite them.
-            // For now, we just store their profile.
             const [newUser] = await tx.insert(users).values({
                 firstName,
                 lastName,
                 email,
                 phone,
-                role: role as any,
+                role: dbRole as any,
                 organizationId: orgId,
                 status: 'active', // Auto-activate for now
             }).returning();
 
             // 2. If role is teacher, create teacher record
-            if (role === 'teacher') {
+            if (dbRole === 'teacher') {
                 await tx.insert(teachers).values({
                     userId: newUser.id,
                     organizationId: orgId,

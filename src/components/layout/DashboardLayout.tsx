@@ -51,6 +51,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <main className="flex-1">
                     {children}
                 </main>
+
+                <footer className="py-4 px-6 text-center border-t border-[#1c3c33]/5">
+                    <p className="text-[10px] font-medium text-[#1c3c33]/40 tracking-wider">
+                        Powered by <a href="https://nexiralabs.com" target="_blank" rel="noopener noreferrer" className="text-[#2F6B4F] font-bold hover:underline transition-all">Nexira Labs</a>
+                    </p>
+                </footer>
             </div>
         </div>
     );

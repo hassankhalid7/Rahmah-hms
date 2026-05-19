@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
     try {
         const { userId: currentUserId, orgId } = await getAuth();
 
+        console.log('[CLASSES_POST] Creating class for orgId:', orgId);
+
         if (!currentUserId || !orgId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
@@ -44,6 +46,8 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
     try {
         const { userId, orgId } = await getAuth();
+
+        console.log('[CLASSES_GET] Attempting to fetch classes for orgId:', orgId);
 
         if (isDemoMode) {
             return NextResponse.json([

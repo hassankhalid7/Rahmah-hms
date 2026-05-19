@@ -6,3 +6,4 @@ export * from './exams';
 export * from './notifications';
 export * from './progress';
 export * from './join-requests';
+export * from './fees';

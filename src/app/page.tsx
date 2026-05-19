@@ -92,7 +92,8 @@ export default function Home() {
       emailUs: 'Email',
       callUs: 'Phone',
       officeLocation: 'Office Location',
-      copyright: '© 2025 Rahmah HMS. All rights reserved. | A Project by Islamic Education Innovators',
+      copyright: '© 2025 Rahmah HMS. All rights reserved. | Powered by ',
+      poweredBy: 'Nexira Labs',
       statusTitle: 'Verified Institute',
       statusSub: 'Trust & Security Guaranteed'
     },
@@ -163,7 +164,8 @@ export default function Home() {
       emailUs: 'ای میل',
       callUs: 'فون',
       officeLocation: 'دفتر کا مقام',
-      copyright: '© 2025 رحمہ HMS۔ تمام حقوق محفوظ ہیں۔ | اسلامی تعلیمی جدت کاروں کا ایک منصوبہ',
+      copyright: '© 2025 رحمہ HMS۔ تمام حقوق محفوظ ہیں۔ | Powered by ',
+      poweredBy: 'Nexira Labs',
       statusTitle: 'تصدیق شدہ ادارہ',
       statusSub: 'اعتماد اور تحفظ کی ضمانت'
     }
@@ -534,6 +536,14 @@ export default function Home() {
 
             <div className="mt-12 pt-8 border-t border-white/10 text-center text-xs text-white/40">
               {t[lang].copyright}
+              <a 
+                href="https://nexiralabs.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-[#F3D083] font-bold hover:underline transition-all"
+              >
+                {t[lang].poweredBy}
+              </a>
             </div>
           </div>
         </div>
