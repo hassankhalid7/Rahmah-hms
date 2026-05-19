@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         const classIds = teacherClasses.map(c => c.id);
         
         let totalStudents = 0;
-        let classDetails = [];
+        let classDetails: any[] = [];
 
         if (classIds.length > 0) {
             const enrollments = await db.select({

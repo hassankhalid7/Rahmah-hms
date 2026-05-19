@@ -26,9 +26,6 @@ export async function POST(req: NextRequest) {
             specialization, joiningDate, employeeNumber, gender
         } = validation.data;
 
-        // Map UI role to DB role
-        const dbRole = role === 'admin' ? 'institute_admin' : role;
-
         // Transaction to create user and teacher record
         const result = await db.transaction(async (tx) => {
             // 1. Create User
@@ -37,13 +34,13 @@ export async function POST(req: NextRequest) {
                 lastName,
                 email,
                 phone,
-                role: dbRole as any,
+                role: role as any,
                 organizationId: orgId,
                 status: 'active', // Auto-activate for now
             }).returning();
 
             // 2. If role is teacher, create teacher record
-            if (dbRole === 'teacher') {
+            if (role === 'teacher') {
                 await tx.insert(teachers).values({
                     userId: newUser.id,
                     organizationId: orgId,
