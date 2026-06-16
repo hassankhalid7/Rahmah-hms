@@ -1,41 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { joinRequests, users } from '@/db/schema';
+import { organizations, users, joinRequests } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { isDemoMode } from '@/lib/auth-constants';
-import { addMockJoinRequest } from '@/lib/mock-db';
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { organizationId, fullName, phone, email, message } = body;
 
-        if (!organizationId || !fullName || !phone) {
-            return new NextResponse('Missing required fields', { status: 400 });
+        if (isDemoMode) {
+            return NextResponse.json({
+                success: true,
+                message: 'Demo mode - Join request simulated successfully'
+            });
         }
 
-        // Create student user first (minimal profile)
-        const [newUser] = await db.insert(users).values({
-            firstName: fullName.split(' ')[0],
-            lastName: fullName.split(' ').slice(1).join(' ') || '',
-            email: email || null,
-            phone: phone,
-            role: 'student',
-            status: 'pending',
-            organizationId: organizationId,
-        }).returning();
+        if (!organizationId || !fullName || !phone) {
+            return new NextResponse('Organization ID, name, and phone are required', { status: 400 });
+        }
+
+        // Verify organization exists
+        const [organization] = await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, organizationId))
+            .limit(1);
+
+        if (!organization) {
+            return new NextResponse('Organization not found', { status: 404 });
+        }
+
+        // Create a temporary user record (or check if exists by phone)
+        let userId;
+        const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.phone, phone))
+            .limit(1);
+
+        if (existingUser) {
+            userId = existingUser.id;
+        } else {
+            // Create new user
+            const nameParts = fullName.trim().split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ') || '';
+
+            const [newUser] = await db
+                .insert(users)
+                .values({
+                    firstName,
+                    lastName,
+                    phone,
+                    email: email || null,
+                    role: 'student',
+                    status: 'pending',
+                })
+                .returning();
+
+            userId = newUser.id;
+        }
+
+        // Check for existing pending request
+        const [existingRequest] = await db
+            .select()
+            .from(joinRequests)
+            .where(eq(joinRequests.studentUserId, userId))
+            .limit(1);
+
+        if (existingRequest && existingRequest.status === 'pending') {
+            return new NextResponse('You already have a pending request for this organization', { status: 400 });
+        }
 
         // Create join request
-        const [newRequest] = await db.insert(joinRequests).values({
-            studentUserId: newUser.id,
-            organizationId: organizationId,
-            message: message || null,
-            status: 'pending'
-        }).returning();
+        await db
+            .insert(joinRequests)
+            .values({
+                studentUserId: userId,
+                organizationId,
+                message: message || null,
+                status: 'pending'
+            });
 
         return NextResponse.json({
             success: true,
-            message: 'Join request sent successfully!',
-            request: newRequest
+            message: 'Join request sent successfully! The admin will review your request.'
         });
 
     } catch (error) {
