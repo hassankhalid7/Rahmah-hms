@@ -77,11 +77,16 @@ export async function POST(req: NextRequest) {
             admin: { id: newAdmin.id, email: newAdmin.email }
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[PUBLIC_ORGANIZATIONS_REGISTER_POST] Detailed Error:', error);
+        
+        // Extract the root database driver error message (usually in error.cause)
+        const rootErrorMessage = error?.cause?.message || error?.cause || null;
+        
         return NextResponse.json({ 
             message: 'Internal Error', 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            details: rootErrorMessage
         }, { status: 500 });
     }
 }
