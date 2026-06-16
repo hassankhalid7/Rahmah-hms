@@ -23,15 +23,23 @@ export async function POST(req: NextRequest) {
         }
 
         // Create slug from name
-        const nameStr = String(name || '');
-        const slug = nameStr.toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+        const nameStr = String(name || '').trim();
+        
+        if (!nameStr) {
+            return new NextResponse('Organization name is required', { status: 400 });
+        }
+
+        // Create slug from name - handle both English and Urdu characters
+        let slug = nameStr.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '') // Remove special characters (keeps only a-z, 0-9, spaces, hyphens)
             .replace(/\s+/g, '-') // Replace spaces with hyphens
             .replace(/-+/g, '-') // Replace multiple hyphens with single
+            .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
             .trim();
 
-        if (!slug) {
-            return new NextResponse('Invalid organization name', { status: 400 });
+        // If slug is empty after cleaning (e.g., all Urdu characters), use a random string
+        if (!slug || slug.length < 2) {
+            slug = `org-${Date.now()}`;
         }
 
         // Check if slug already exists
