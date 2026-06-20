@@ -97,7 +97,12 @@ function SignInForm() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Login success - redirect based on actual role from server
+      // Login success
+      if (data.pendingApproval) {
+        router.push('/teacher-pending');
+        return;
+      }
+      // redirect based on actual role from server
       const serverRole = data.user?.role === 'institute_admin' ? 'admin' : (data.user?.role || role);
       router.push(`/dashboard?role=${serverRole}`);
     } catch (error) {
@@ -230,13 +235,20 @@ function SignInForm() {
         </form>
 
         {/* Register new institute */}
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <Link
             href="/register"
             className="flex w-full items-center justify-center gap-2 rounded-full border border-[#d0d8cf] bg-white px-4 py-2.5 text-xs font-semibold text-[#1c3c33]/85 shadow-sm hover:bg-[#F7F1E6]"
           >
-            <span className="text-lg">👤</span>
+            <span className="text-lg">🏫</span>
             <span>{t('registerNewInstitute')}</span>
+          </Link>
+          <Link
+            href="/register/teacher"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-[#2F6B4F]/30 bg-[#E8F5EE] px-4 py-2.5 text-xs font-semibold text-[#2F6B4F] shadow-sm hover:bg-[#d5ede0]"
+          >
+            <span className="text-lg">👨‍🏫</span>
+            <span>{t('teacher')} — {lang === 'en' ? 'Register & Join a Madrassa' : 'رجسٹر کریں اور مدرسے میں شامل ہوں'}</span>
           </Link>
         </div>
       </div>

@@ -15,6 +15,7 @@ export default function middleware(request: NextRequest) {
         pathname.startsWith('/contact') ||
         pathname.startsWith('/pricing') ||
         pathname.startsWith('/features') ||
+        pathname.startsWith('/teacher-pending') || // teacher manages auth themselves
         pathname.startsWith('/api/public');
 
     if (!session && !isPublicRoute) {

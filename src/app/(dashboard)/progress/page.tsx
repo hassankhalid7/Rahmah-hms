@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { SURAH_VERSE_COUNTS } from '@/lib/progress/validators';
 
 // ── Quran Juzz list ──────────────────────────────────────────────
 const JUZZ_LIST = Array.from({ length: 30 }, (_, i) => ({ value: i + 1, label: `Juzz ${i + 1}` }));
@@ -76,8 +77,9 @@ interface ProgressForm {
 export default function ProgressPage() {
   const today = new Date().toISOString().split('T')[0];
 
-  const [classes,  setClasses]  = useState<{ id: string; name: string }[]>([]);
+  const [classes,  setClasses]  = useState<{ id: string; name: string; teacherId?: string; teacherName?: string }[]>([]);
   const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
   const [entries,  setEntries]  = useState<any[]>([]);
@@ -100,6 +102,14 @@ export default function ProgressPage() {
       .catch(() => {});
   }, []);
 
+  // Load teachers
+  useEffect(() => {
+    fetch('/api/staff?role=teacher')
+      .then(r => r.json())
+      .then(data => setTeachers(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
   // Load students when class changes
   useEffect(() => {
     if (!form.classId) { setStudents([]); return; }
@@ -109,11 +119,57 @@ export default function ProgressPage() {
       .catch(() => {});
   }, [form.classId]);
 
+  // Compute selected class teacher name or default teacher name
+  const selectedClass = classes.find(c => c.id === form.classId);
+  const classTeacherName = selectedClass?.teacherName && selectedClass?.teacherName !== 'Unassigned'
+    ? selectedClass.teacherName
+    : (teachers.length > 0 ? `${teachers[0].firstName} ${teachers[0].lastName}`.trim() : '');
+
+  // Auto-populate listenerName when class, classes, or teachers load/change
+  useEffect(() => {
+    if (!form.classId) return;
+    if (classTeacherName) {
+      setForm(f => ({
+        ...f,
+        sabaq: { ...f.sabaq, listenerName: f.sabaq.listenerName || classTeacherName },
+        sabqi: { ...f.sabqi, listenerName: f.sabqi.listenerName || classTeacherName },
+        manzil: { ...f.manzil, listenerName: f.manzil.listenerName || classTeacherName },
+      }));
+    }
+  }, [form.classId, classTeacherName]);
+
   const setSection = (key: 'sabaq' | 'sabqi' | 'manzil', patch: Partial<SectionEntry>) =>
     setForm(f => ({ ...f, [key]: { ...f[key], ...patch } }));
 
   const handleSave = async () => {
     if (!form.studentId) { alert('Please select a student first.'); return; }
+
+    const validateSection = (sec: SectionEntry, name: string) => {
+      if (!sec.surah) return null;
+      const surahIndex = SURAH_LIST.indexOf(sec.surah) + 1;
+      if (surahIndex < 1 || surahIndex > 114) return `Invalid Surah selected in ${name}`;
+      const maxVerses = SURAH_VERSE_COUNTS[surahIndex];
+      const fromNum = Number(sec.from);
+      const toNum = Number(sec.to);
+      if (!sec.from || isNaN(fromNum) || fromNum < 1 || fromNum > maxVerses) {
+        return `Invalid 'From Ayah' in ${name}. ${sec.surah} contains only ${maxVerses} verses.`;
+      }
+      if (!sec.to || isNaN(toNum) || toNum < 1 || toNum > maxVerses) {
+        return `Invalid 'To Ayah' in ${name}. ${sec.surah} contains only ${maxVerses} verses.`;
+      }
+      if (fromNum > toNum) {
+        return `'From Ayah' cannot be greater than 'To Ayah' in ${name}.`;
+      }
+      return null;
+    };
+
+    const sabaqErr = validateSection(form.sabaq, 'Sabaq');
+    if (sabaqErr) { alert(sabaqErr); return; }
+    const sabqiErr = validateSection(form.sabqi, 'Sabqi');
+    if (sabqiErr) { alert(sabqiErr); return; }
+    const manzilErr = validateSection(form.manzil, 'Manzil');
+    if (manzilErr) { alert(manzilErr); return; }
+
     setSaving(true);
     try {
       // Save to DB via API
@@ -207,6 +263,8 @@ export default function ProgressPage() {
               data={form.sabaq}
               onChange={p => setSection('sabaq', p)}
               showSelectionType={false}
+              teachers={teachers}
+              classTeacherName={classTeacherName}
             />
             <ProgressSection
               title="Sabqi"
@@ -216,6 +274,8 @@ export default function ProgressPage() {
               data={form.sabqi}
               onChange={p => setSection('sabqi', p)}
               showSelectionType
+              teachers={teachers}
+              classTeacherName={classTeacherName}
             />
             <ProgressSection
               title="Manzil"
@@ -225,6 +285,8 @@ export default function ProgressPage() {
               data={form.manzil}
               onChange={p => setSection('manzil', p)}
               showSelectionType
+              teachers={teachers}
+              classTeacherName={classTeacherName}
             />
 
             {/* ── Teacher Remarks ── */}
@@ -276,11 +338,13 @@ export default function ProgressPage() {
 }
 
 // ── Section Component ─────────────────────────────────────────────
-function ProgressSection({ title, subtitle, color, icon, data, onChange, showSelectionType }: {
+function ProgressSection({ title, subtitle, color, icon, data, onChange, showSelectionType, teachers, classTeacherName }: {
   title: string; subtitle: string; color: 'green' | 'blue' | 'orange';
   icon: string; data: SectionEntry;
   onChange: (p: Partial<SectionEntry>) => void;
   showSelectionType: boolean;
+  teachers: any[];
+  classTeacherName: string;
 }) {
   const colors = {
     green:  { bg: 'bg-[#E8F5EE]', text: 'text-[#2F6B4F]',  ring: 'focus:ring-[#2F6B4F]/10',  border: 'focus:border-[#2F6B4F]',  active: 'bg-[#2F6B4F] text-white' },
@@ -363,22 +427,43 @@ function ProgressSection({ title, subtitle, color, icon, data, onChange, showSel
         </div>
 
         {/* Surah / From / To */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Field label="Surah">
-            <select value={data.surah} onChange={e => onChange({ surah: e.target.value })} className={inputCls}>
-              <option value="">Select Surah…</option>
-              {SURAH_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
-          <Field label="From (Ayah)">
-            <input type="text" placeholder="e.g. 1" value={data.from}
-              onChange={e => onChange({ from: e.target.value })} className={inputCls} />
-          </Field>
-          <Field label="To (Ayah)">
-            <input type="text" placeholder="e.g. 20" value={data.to}
-              onChange={e => onChange({ to: e.target.value })} className={inputCls} />
-          </Field>
-        </div>
+        {(() => {
+          const surahIndex = SURAH_LIST.indexOf(data.surah) + 1;
+          const maxVerses = surahIndex > 0 ? SURAH_VERSE_COUNTS[surahIndex] : 0;
+          const fromNum = Number(data.from);
+          const toNum = Number(data.to);
+          const fromError = data.surah && data.from && (isNaN(fromNum) || fromNum < 1 || fromNum > maxVerses)
+            ? `${data.surah} contains only ${maxVerses} verses.`
+            : null;
+          const toError = data.surah && data.to && (isNaN(toNum) || toNum < 1 || toNum > maxVerses)
+            ? `${data.surah} contains only ${maxVerses} verses.`
+            : null;
+          const rangeError = data.from && data.to && !fromError && !toError && fromNum > toNum
+            ? "'From Ayah' cannot be greater than 'To Ayah'."
+            : null;
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Field label="Surah">
+                <select value={data.surah} onChange={e => onChange({ surah: e.target.value })} className={inputCls}>
+                  <option value="">Select Surah…</option>
+                  {SURAH_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="From (Ayah)">
+                <input type="text" placeholder="e.g. 1" value={data.from}
+                  onChange={e => onChange({ from: e.target.value })} className={inputCls} />
+                {fromError && <p className="text-xs text-red-600 mt-1">{fromError}</p>}
+              </Field>
+              <Field label="To (Ayah)">
+                <input type="text" placeholder="e.g. 20" value={data.to}
+                  onChange={e => onChange({ to: e.target.value })} className={inputCls} />
+                {toError && <p className="text-xs text-red-600 mt-1">{toError}</p>}
+                {rangeError && <p className="text-xs text-red-600 mt-1">{rangeError}</p>}
+              </Field>
+            </div>
+          );
+        })()}
 
         {/* Rating */}
         <div className="space-y-2">
@@ -406,7 +491,15 @@ function ProgressSection({ title, subtitle, color, icon, data, onChange, showSel
             <div className="flex gap-2">
               {(['teacher','peer'] as ListenerType[]).map(lt => (
                 <button key={lt} type="button"
-                  onClick={() => onChange({ listenerType: lt })}
+                  onClick={() => {
+                    const patch: Partial<SectionEntry> = { listenerType: lt };
+                    if (lt === 'teacher') {
+                      patch.listenerName = classTeacherName;
+                    } else {
+                      patch.listenerName = '';
+                    }
+                    onChange(patch);
+                  }}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-colors ${
                     data.listenerType === lt
                       ? `${colors.active} border-transparent`
@@ -418,8 +511,31 @@ function ProgressSection({ title, subtitle, color, icon, data, onChange, showSel
             </div>
           </div>
           <Field label="Listener's Name">
-            <input type="text" placeholder="Enter name…" value={data.listenerName}
-              onChange={e => onChange({ listenerName: e.target.value })} className={inputCls} />
+            {data.listenerType === 'teacher' && teachers.length > 0 ? (
+              <select
+                value={data.listenerName}
+                onChange={e => onChange({ listenerName: e.target.value })}
+                className={inputCls}
+              >
+                <option value="">Select Teacher…</option>
+                {teachers.map(t => {
+                  const fullName = `${t.firstName} ${t.lastName}`.trim();
+                  return (
+                    <option key={t.id} value={fullName}>
+                      {fullName}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="Enter name…"
+                value={data.listenerName}
+                onChange={e => onChange({ listenerName: e.target.value })}
+                className={inputCls}
+              />
+            )}
           </Field>
         </div>
       </div>

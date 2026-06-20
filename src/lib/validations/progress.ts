@@ -1,14 +1,26 @@
 import { z } from 'zod';
+import { validateAyahReference, getSurahMaxVerses } from '@/lib/progress/validators';
 
 // Enums
 export const learningTypeSchema = z.enum(['qaida', 'nazra', 'hifz']);
 export const attendanceStatusSchema = z.enum(['present', 'absent', 'late', 'excused']);
 
 // Ayah reference validation (format: "Surah:Ayah" e.g., "2:255")
-const ayahReferenceSchema = z.string().regex(
-    /^\d{1,3}:\d{1,3}$/,
-    'Ayah reference must be in format "Surah:Ayah" (e.g., "2:255")'
-);
+const ayahReferenceSchema = z.string()
+    .regex(/^\d{1,3}:\d{1,3}$/, 'Ayah reference must be in format "Surah:Ayah" (e.g., "2:255")')
+    .superRefine((val, ctx) => {
+        if (!validateAyahReference(val)) {
+            const [surah, ayah] = val.split(':').map(Number);
+            const max = getSurahMaxVerses(surah);
+            const message = max === 0
+                ? `Invalid Surah number: ${surah}`
+                : `Ayah ${ayah} is invalid. Surah contains only ${max} verses.`;
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message,
+            });
+        }
+    });
 
 // Base progress schema
 const baseProgressSchema = z.object({

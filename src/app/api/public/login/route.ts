@@ -59,7 +59,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: 'Invalid password' }, { status: 401 });
         }
 
-        // Check status
+        // Check status — teachers with no org get a special pending response
+        if (user.status === 'pending' && user.role === 'teacher' && !user.organizationId) {
+            // Still create the session so teacher can check their requests
+            const response = NextResponse.json({
+                success: true,
+                message: 'Login successful',
+                pendingApproval: true,
+                user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, organizationId: null }
+            });
+            response.cookies.set('session', JSON.stringify({ userId: user.id, organizationId: null, role: user.role }), {
+                httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
+            });
+            return response;
+        }
+
         if (user.status === 'pending') {
             return NextResponse.json({ message: 'Your account is pending approval' }, { status: 403 });
         }
