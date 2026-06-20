@@ -138,6 +138,24 @@ export default function ProgressPage() {
     }
   }, [form.classId, classTeacherName]);
 
+  // Auto-select first teacher when listenerType is 'teacher' and no teacher is selected
+  useEffect(() => {
+    const autoSelectTeacher = (section: SectionEntry): SectionEntry => {
+      if (section.listenerType === 'teacher' && !section.listenerName && teachers.length > 0) {
+        const firstTeacherName = `${teachers[0].firstName} ${teachers[0].lastName}`.trim();
+        return { ...section, listenerName: firstTeacherName };
+      }
+      return section;
+    };
+
+    setForm(f => ({
+      ...f,
+      sabaq: autoSelectTeacher(f.sabaq),
+      sabqi: autoSelectTeacher(f.sabqi),
+      manzil: autoSelectTeacher(f.manzil),
+    }));
+  }, [teachers]);
+
   const setSection = (key: 'sabaq' | 'sabqi' | 'manzil', patch: Partial<SectionEntry>) =>
     setForm(f => ({ ...f, [key]: { ...f[key], ...patch } }));
 
@@ -494,7 +512,8 @@ function ProgressSection({ title, subtitle, color, icon, data, onChange, showSel
                   onClick={() => {
                     const patch: Partial<SectionEntry> = { listenerType: lt };
                     if (lt === 'teacher') {
-                      patch.listenerName = classTeacherName;
+                      // Auto-select teacher: prefer class teacher, otherwise first available teacher
+                      patch.listenerName = classTeacherName || (teachers.length > 0 ? `${teachers[0].firstName} ${teachers[0].lastName}`.trim() : '');
                     } else {
                       patch.listenerName = '';
                     }
@@ -513,7 +532,7 @@ function ProgressSection({ title, subtitle, color, icon, data, onChange, showSel
           <Field label="Listener's Name">
             {data.listenerType === 'teacher' && teachers.length > 0 ? (
               <select
-                value={data.listenerName}
+                value={data.listenerName || (teachers.length === 1 ? `${teachers[0].firstName} ${teachers[0].lastName}`.trim() : '')}
                 onChange={e => onChange({ listenerName: e.target.value })}
                 className={inputCls}
               >
