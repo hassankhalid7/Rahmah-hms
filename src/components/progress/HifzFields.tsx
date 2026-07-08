@@ -126,6 +126,9 @@ export default function HifzFields({ register, errors, setValue, watch }: HifzFi
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                                     placeholder="e.g., 2:255"
                                 />
+                                {(errors as any).hifzAyatMistakes?.[index]?.ayah && (
+                                    <p className="mt-1 text-xs text-red-600">{(errors as any).hifzAyatMistakes[index].ayah.message}</p>
+                                )}
                             </div>
                             <div className="w-28">
                                 <input

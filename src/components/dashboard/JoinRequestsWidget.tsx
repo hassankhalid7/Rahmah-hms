@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/language-context';
 
-type JoinRequest = {
+type StudentRequest = {
     id: string;
     studentName: string;
     studentLastName: string | null;
@@ -14,185 +14,238 @@ type JoinRequest = {
     createdAt: string;
 };
 
+type TeacherRequest = {
+    id: string;
+    teacherName: string;
+    teacherLastName: string | null;
+    teacherEmail: string | null;
+    teacherPhone: string | null;
+    message: string | null;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: string;
+};
+
+type Tab = 'students' | 'teachers';
+
 export default function JoinRequestsWidget() {
     const { t, lang } = useLanguage();
-    const [requests, setRequests] = useState<JoinRequest[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [processing, setProcessing] = useState<string | null>(null);
     const isUrdu = lang === 'ur';
 
+    const [tab, setTab] = useState<Tab>('students');
+    const [studentRequests, setStudentRequests] = useState<StudentRequest[]>([]);
+    const [teacherRequests, setTeacherRequests] = useState<TeacherRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState<string | null>(null);
+
     useEffect(() => {
-        fetchJoinRequests();
+        fetchAll();
     }, []);
 
-    const fetchJoinRequests = async () => {
+    const fetchAll = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const response = await fetch('/api/join-requests');
-            const data = await response.json();
-            
-            if (response.ok) {
-                setRequests(data.requests || []);
-            }
-        } catch (error) {
-            console.error('Failed to fetch join requests:', error);
+            const [sRes, tRes] = await Promise.all([
+                fetch('/api/join-requests'),
+                fetch('/api/admin/teacher-join-requests'),
+            ]);
+            const [sData, tData] = await Promise.all([sRes.json(), tRes.json()]);
+            setStudentRequests(sData.requests || []);
+            setTeacherRequests(tData.requests || []);
+        } catch (e) {
+            console.error('Failed to load requests', e);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    const handleStudentRequest = async (id: string, action: 'approve' | 'reject') => {
         try {
-            setProcessing(requestId);
-            
-            const response = await fetch(`/api/join-requests/${requestId}`, {
+            setProcessing(id);
+            const res = await fetch(`/api/join-requests/${id}`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action }),
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                // Remove the processed request from the list
-                setRequests(prev => prev.filter(req => req.id !== requestId));
-                
-                // Show success message (you can add a toast notification here)
-                console.log(data.message);
-            } else {
-                console.error('Failed to process request:', data.message);
-            }
-        } catch (error) {
-            console.error('Error processing request:', error);
+            if (res.ok) setStudentRequests(prev => prev.filter(r => r.id !== id));
         } finally {
             setProcessing(null);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm">
-                <div className="animate-pulse">
-                    <div className="h-6 bg-[#1c3c33]/10 rounded mb-3"></div>
-                    <div className="space-y-3">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-16 bg-[#1c3c33]/5 rounded-xl"></div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const handleTeacherRequest = async (id: string, action: 'approve' | 'reject') => {
+        try {
+            setProcessing(id);
+            const res = await fetch(`/api/teacher-join-requests/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action }),
+            });
+            if (res.ok) setTeacherRequests(prev => prev.filter(r => r.id !== id));
+        } finally {
+            setProcessing(null);
+        }
+    };
 
-    if (requests.length === 0) {
-        return (
-            <div className="rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm">
-                <div className="mb-5">
-                    <h2 className="text-xl font-black tracking-tight text-[#1c3c33]">
-                        {t('Join Requests', 'شمولیت کی درخواستیں')}
-                    </h2>
-                    <p className="mt-1 text-xs font-medium text-[#1c3c33]/60">
-                        {t('Student admission requests', 'طلبہ کی داخلہ درخواستیں')}
-                    </p>
-                </div>
-                <div className="text-center py-8">
-                    <div className="text-4xl mb-2">📝</div>
-                    <p className="text-sm text-[#1c3c33]/60">
-                        {t('No pending join requests', 'کوئی زیر التواء درخواست نہیں')}
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    const totalPending = studentRequests.length + teacherRequests.length;
 
     return (
-        <div className="rounded-2xl border border-[#1c3c33]/5 bg-white p-5 shadow-sm" dir={isUrdu ? 'rtl' : 'ltr'}>
-            <div className="mb-5">
-                <h2 className="text-xl font-black tracking-tight text-[#1c3c33]">
-                    {t('Join Requests', 'شمولیت کی درخواستیں')}
-                </h2>
-                <p className="mt-1 text-xs font-medium text-[#1c3c33]/60">
-                    {t('Student admission requests', 'طلبہ کی داخلہ درخواستیں')} ({requests.length})
-                </p>
-            </div>
-
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-                {requests.map((request) => (
-                    <div key={request.id} className="rounded-xl border border-[#d0d8cf]/50 bg-[#FDFBF7] p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-8 h-8 bg-[#2F6B4F] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                        {request.studentName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-[#1c3c33]">
-                                            {request.studentName} {request.studentLastName || ''}
-                                        </p>
-                                        <p className="text-xs text-[#1c3c33]/60">
-                                            {new Date(request.createdAt).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                {request.studentEmail && (
-                                    <p className="text-xs text-[#1c3c33]/70 mb-1">
-                                        📧 {request.studentEmail}
-                                    </p>
-                                )}
-                                
-                                {request.studentPhone && (
-                                    <p className="text-xs text-[#1c3c33]/70 mb-1">
-                                        📞 {request.studentPhone}
-                                    </p>
-                                )}
-
-                                {request.message && (
-                                    <div className="mt-2 p-2 bg-white rounded-lg border border-[#d0d8cf]/30">
-                                        <p className="text-xs text-[#1c3c33]/80">
-                                            <span className="font-medium">{t('Message:', 'پیغام:')}</span> {request.message}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => handleRequest(request.id, 'approve')}
-                                disabled={processing === request.id}
-                                className="flex-1 px-3 py-2 bg-[#2F6B4F] text-white rounded-lg text-xs font-bold hover:bg-[#285c44] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {processing === request.id ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-                                        {t('Processing...', 'عمل جاری...')}
-                                    </div>
-                                ) : (
-                                    <>✓ {t('Approve', 'منظور')}</>
-                                )}
-                            </button>
-                            
-                            <button
-                                onClick={() => handleRequest(request.id, 'reject')}
-                                disabled={processing === request.id}
-                                className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {processing === request.id ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-                                        {t('Processing...', 'عمل جاری...')}
-                                    </div>
-                                ) : (
-                                    <>✗ {t('Reject', 'مسترد')}</>
-                                )}
-                            </button>
-                        </div>
+        <div className="rounded-2xl border border-[#1c3c33]/5 bg-white shadow-sm overflow-hidden" dir={isUrdu ? 'rtl' : 'ltr'}>
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3">
+                <div className="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 className="text-sm font-black text-[#1c3c33]">
+                            {t('Join Requests', 'شمولیت کی درخواستیں')}
+                        </h2>
+                        <p className="text-[11px] text-[#1c3c33]/50 mt-0.5">
+                            {totalPending > 0
+                                ? `${totalPending} ${t('pending', 'زیر التواء')}`
+                                : t('No pending requests', 'کوئی زیر التواء درخواست نہیں')}
+                        </p>
                     </div>
-                ))}
+                    {loading && (
+                        <div className="w-4 h-4 border-2 border-[#2F6B4F] border-t-transparent rounded-full animate-spin" />
+                    )}
+                </div>
+
+                {/* Tab switcher */}
+                <div className="flex gap-1 bg-[#F7F1E6] rounded-xl p-1">
+                    {(['students', 'teachers'] as Tab[]).map(t_ => (
+                        <button key={t_} onClick={() => setTab(t_)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                tab === t_
+                                    ? 'bg-white text-[#1c3c33] shadow-sm'
+                                    : 'text-[#1c3c33]/50 hover:text-[#1c3c33]'
+                            }`}>
+                            {t_ === 'students' ? '🎓' : '👨‍🏫'}
+                            {t_ === 'students' ? t('Students', 'طلبہ') : t('Teachers', 'اساتذہ')}
+                            {t_ === 'students' && studentRequests.length > 0 && (
+                                <span className="bg-amber-400 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                                    {studentRequests.length}
+                                </span>
+                            )}
+                            {t_ === 'teachers' && teacherRequests.length > 0 && (
+                                <span className="bg-[#2F6B4F] text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                                    {teacherRequests.length}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
             </div>
+
+            {/* Content */}
+            <div className="divide-y divide-[#1c3c33]/5 max-h-[28rem] overflow-y-auto">
+                {tab === 'students' && (
+                    studentRequests.length === 0
+                        ? <EmptyState msg={t('No pending student requests', 'کوئی طالب علم درخواست نہیں')} />
+                        : studentRequests.map(req => (
+                            <RequestCard
+                                key={req.id}
+                                id={req.id}
+                                name={`${req.studentName} ${req.studentLastName || ''}`.trim()}
+                                email={req.studentEmail}
+                                phone={req.studentPhone}
+                                message={req.message}
+                                createdAt={req.createdAt}
+                                processing={processing}
+                                onApprove={() => handleStudentRequest(req.id, 'approve')}
+                                onReject={() => handleStudentRequest(req.id, 'reject')}
+                                accentColor="#2F6B4F"
+                                t={t}
+                            />
+                        ))
+                )}
+
+                {tab === 'teachers' && (
+                    teacherRequests.length === 0
+                        ? <EmptyState msg={t('No pending teacher requests', 'کوئی استاد درخواست نہیں')} />
+                        : teacherRequests.map(req => (
+                            <RequestCard
+                                key={req.id}
+                                id={req.id}
+                                name={`${req.teacherName} ${req.teacherLastName || ''}`.trim()}
+                                email={req.teacherEmail}
+                                phone={req.teacherPhone}
+                                message={req.message}
+                                createdAt={req.createdAt}
+                                processing={processing}
+                                onApprove={() => handleTeacherRequest(req.id, 'approve')}
+                                onReject={() => handleTeacherRequest(req.id, 'reject')}
+                                accentColor="#1565C0"
+                                badge={t('Teacher', 'استاد')}
+                                t={t}
+                            />
+                        ))
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ── Sub-components ── */
+
+function RequestCard({
+    id, name, email, phone, message, createdAt, processing,
+    onApprove, onReject, accentColor, badge, t
+}: {
+    id: string; name: string;
+    email: string | null; phone: string | null; message: string | null;
+    createdAt: string; processing: string | null;
+    onApprove: () => void; onReject: () => void;
+    accentColor: string; badge?: string;
+    t: (en: string, ur: string) => string;
+}) {
+    const isProcessing = processing === id;
+    return (
+        <div className="px-5 py-4">
+            <div className="flex items-start gap-3 mb-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0"
+                    style={{ backgroundColor: accentColor }}>
+                    {name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-[#1c3c33] truncate">{name}</p>
+                        {badge && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white shrink-0"
+                                style={{ backgroundColor: accentColor }}>
+                                {badge}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-xs text-[#1c3c33]/50 mt-0.5">
+                        {new Date(createdAt).toLocaleDateString()}
+                    </p>
+                    {email && <p className="text-xs text-[#1c3c33]/60 mt-0.5">📧 {email}</p>}
+                    {phone && <p className="text-xs text-[#1c3c33]/60">📞 {phone}</p>}
+                    {message && (
+                        <p className="text-xs text-[#1c3c33]/70 mt-1.5 bg-[#F7F1E6] rounded-lg px-2 py-1.5 italic">
+                            "{message}"
+                        </p>
+                    )}
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <button onClick={onApprove} disabled={isProcessing}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: accentColor }}>
+                    {isProcessing ? '…' : `✓ ${t('Approve', 'منظور')}`}
+                </button>
+                <button onClick={onReject} disabled={isProcessing}
+                    className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-50">
+                    {isProcessing ? '…' : `✗ ${t('Reject', 'مسترد')}`}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function EmptyState({ msg }: { msg: string }) {
+    return (
+        <div className="py-10 text-center px-5">
+            <div className="text-3xl mb-2">📝</div>
+            <p className="text-xs text-[#1c3c33]/50 font-medium">{msg}</p>
         </div>
     );
 }

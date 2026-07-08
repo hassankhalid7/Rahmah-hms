@@ -5,16 +5,17 @@ import clsx from 'clsx';
 import { Suspense } from 'react';
 
 const adminItems = [
-    { name: 'Dashboard',      href: '/dashboard',        icon: '📊' },
-    { name: 'Daily Progress', href: '/progress',         icon: '📖' },
-    { name: 'Attendance',     href: '/attendance',       icon: '📅' },
-    { name: 'Exams',          href: '/exams',            icon: '📝' },
-    { name: 'Staff',          href: '/staff',            icon: '👨‍🏫' },
-    { name: 'Classes',        href: '/classes',          icon: '📚' },
-    { name: 'Students',       href: '/students',         icon: '👤' },
-    { name: 'Reports',        href: '/reports',          icon: '📉' },
-    { name: 'Settings',       href: '/settings',         icon: '⚙️' },
-    { name: 'My Profile',     href: '/settings/profile', icon: '🪪' },
+    { name: 'Dashboard',        href: '/dashboard',           icon: '📊' },
+    { name: 'Daily Progress',   href: '/progress',            icon: '📖' },
+    { name: 'Attendance',       href: '/attendance',          icon: '📅' },
+    { name: 'Exams',            href: '/exams',               icon: '📝' },
+    { name: 'Staff',            href: '/staff',               icon: '👨‍🏫' },
+    { name: 'Teacher Requests', href: '/teacher-requests',    icon: '📩' },
+    { name: 'Classes',          href: '/classes',             icon: '📚' },
+    { name: 'Students',         href: '/students',            icon: '👤' },
+    { name: 'Reports',          href: '/reports',             icon: '📉' },
+    { name: 'Settings',         href: '/settings',            icon: '⚙️' },
+    { name: 'My Profile',       href: '/settings/profile',    icon: '🪪' },
 ];
 
 const teacherItems = [
