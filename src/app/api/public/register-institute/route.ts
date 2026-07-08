@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { organizations } from '@/db/schema/organizations';
-import { users } from '@/db/schema/users';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
     try {
+        const [{ db }, { organizations }, { users }] = await Promise.all([
+            import('@/db'),
+            import('@/db/schema/organizations'),
+            import('@/db/schema/users'),
+        ]);
+
         const body = await req.json();
         const { name, address, phone, email, password, adminName } = body;
 
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
 
         // Check if slug already exists
         const existingOrg = await db
-            .select()
+            .select({ id: organizations.id })
             .from(organizations)
             .where(eq(organizations.slug, slug))
             .limit(1);
@@ -52,9 +55,15 @@ export async function POST(req: NextRequest) {
                     address,
                     phone,
                     email: email || null,
-                    metadata: {},
                 })
-                .returning();
+                .returning({
+                    id: organizations.id,
+                    name: organizations.name,
+                    slug: organizations.slug,
+                    address: organizations.address,
+                    phone: organizations.phone,
+                    email: organizations.email,
+                });
 
             const [admin] = await tx.insert(users).values({
                 firstName: adminName.trim().split(/\s+/)[0],
@@ -65,7 +74,10 @@ export async function POST(req: NextRequest) {
                 role: 'institute_admin' as const,
                 status: 'active' as const,
                 organizationId: org.id,
-            }).returning();
+            }).returning({
+                id: users.id,
+                email: users.email,
+            });
 
             return { newOrganization: org, newAdmin: admin };
         });
@@ -79,9 +91,13 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error('[PUBLIC_ORGANIZATIONS_REGISTER_POST] Detailed Error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const envHint = errorMessage.includes('DATABASE_URL')
+            ? 'DATABASE_URL missing. Create .env.local (copy from .env.example) and set DATABASE_URL, then restart the dev server.'
+            : errorMessage;
         return NextResponse.json({ 
             message: 'Internal Error', 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+            error: envHint,
         }, { status: 500 });
     }
 }

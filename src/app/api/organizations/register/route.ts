@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { organizations, users } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getAuth } from '@/lib/auth';
 import { isDemoMode } from '@/lib/auth-constants';
 import { addMockOrganization, getMockOrganizations } from '@/lib/mock-db';
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
         // Check if slug already exists
         const existingOrg = await db
-            .select()
+            .select({ id: organizations.id })
             .from(organizations)
             .where(eq(organizations.slug, slug))
             .limit(1);
@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
                 phone,
                 email: email || null,
             })
-            .returning();
+            .returning({
+                id: organizations.id,
+                name: organizations.name,
+                slug: organizations.slug,
+                address: organizations.address,
+                phone: organizations.phone,
+                email: organizations.email,
+            });
 
         // Update user to be admin of this organization
         await db
